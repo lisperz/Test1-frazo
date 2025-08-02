@@ -1,0 +1,60 @@
+# FastAPI backend requirements for video text inpainting service
+
+# Core FastAPI dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database and ORM
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.12.1
+
+# Authentication and security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Task queue and background processing
+celery==5.3.4
+redis==5.0.1
+
+# File handling and validation
+python-magic==0.4.27
+Pillow==10.0.1
+
+# AWS and cloud services
+boto3==1.29.2
+botocore==1.32.2
+
+# Simplified dependencies for Docker build
+numpy==1.26.2
+pandas==2.2.2
+requests==2.31.0
+
+# WebSocket support
+websockets==12.0
+
+# Configuration management
+python-decouple==3.8
+pydantic-settings==2.0.3
+
+# HTTP client for external APIs
+httpx==0.25.2
+aiofiles==23.2.1
+
+# Monitoring and logging
+structlog==23.2.0
+
+# Development and testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Email services
+emails==0.6
+
+# Rate limiting
+slowapi==0.1.9
+
+# CORS support
+fastapi-cors==0.0.6

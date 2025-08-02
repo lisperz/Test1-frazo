@@ -1,0 +1,131 @@
+"""
+JWT token handling for authentication
+"""
+
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+import jwt
+from passlib.context import CryptContext
+import secrets
+
+from backend.config import settings
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class JWTHandler:
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """Hash a password"""
+        return pwd_context.hash(password)
+    
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash"""
+        return pwd_context.verify(plain_password, hashed_password)
+    
+    @staticmethod
+    def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+        """Create JWT access token"""
+        to_encode = data.copy()
+        
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        
+        to_encode.update({"exp": expire, "type": "access"})
+        
+        encoded_jwt = jwt.encode(
+            to_encode, 
+            settings.secret_key, 
+            algorithm=settings.algorithm
+        )
+        
+        return encoded_jwt
+    
+    @staticmethod
+    def create_refresh_token(data: Dict[str, Any]) -> str:
+        """Create JWT refresh token"""
+        to_encode = data.copy()
+        expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+        
+        to_encode.update({"exp": expire, "type": "refresh"})
+        
+        encoded_jwt = jwt.encode(
+            to_encode,
+            settings.secret_key,
+            algorithm=settings.algorithm
+        )
+        
+        return encoded_jwt
+    
+    @staticmethod
+    def decode_token(token: str) -> Dict[str, Any]:
+        """Decode and verify JWT token"""
+        try:
+            payload = jwt.decode(
+                token,
+                settings.secret_key,
+                algorithms=[settings.algorithm]
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token has expired")
+        except jwt.JWTError:
+            raise ValueError("Invalid token")
+    
+    @staticmethod
+    def create_email_verification_token(email: str) -> str:
+        """Create email verification token"""
+        data = {"email": email, "type": "email_verification"}
+        expire = datetime.utcnow() + timedelta(hours=24)  # 24 hour expiry
+        data.update({"exp": expire})
+        
+        return jwt.encode(data, settings.secret_key, algorithm=settings.algorithm)
+    
+    @staticmethod
+    def create_password_reset_token(email: str) -> str:
+        """Create password reset token"""
+        data = {"email": email, "type": "password_reset"}
+        expire = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+        data.update({"exp": expire})
+        
+        return jwt.encode(data, settings.secret_key, algorithm=settings.algorithm)
+    
+    @staticmethod
+    def verify_email_token(token: str) -> Optional[str]:
+        """Verify email verification token and return email"""
+        try:
+            payload = JWTHandler.decode_token(token)
+            if payload.get("type") != "email_verification":
+                return None
+            return payload.get("email")
+        except ValueError:
+            return None
+    
+    @staticmethod
+    def verify_password_reset_token(token: str) -> Optional[str]:
+        """Verify password reset token and return email"""
+        try:
+            payload = JWTHandler.decode_token(token)
+            if payload.get("type") != "password_reset":
+                return None
+            return payload.get("email")
+        except ValueError:
+            return None
+    
+    @staticmethod
+    def generate_api_key() -> str:
+        """Generate a secure API key"""
+        return f"vti_{secrets.token_urlsafe(32)}"  # vti = video text inpainting
+    
+    @staticmethod
+    def hash_api_key(api_key: str) -> str:
+        """Hash an API key for storage"""
+        return pwd_context.hash(api_key)
+    
+    @staticmethod
+    def verify_api_key(plain_key: str, hashed_key: str) -> bool:
+        """Verify API key against its hash"""
+        return pwd_context.verify(plain_key, hashed_key)

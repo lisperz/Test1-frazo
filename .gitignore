@@ -1,0 +1,37 @@
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# API Keys and credentials
+harshilsuvarna_accessKeys.csv
+zhaoli_config.json
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large test files
+TestForMyself_Before/
+static/videos/

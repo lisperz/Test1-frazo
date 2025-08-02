@@ -1,0 +1,1 @@
+# Database models for video text inpainting service
