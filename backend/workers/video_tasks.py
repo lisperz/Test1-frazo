@@ -442,7 +442,8 @@ def update_user_quotas():
 @app.task
 def check_long_running_jobs():
     """
-    Check for jobs that have been running too long and mark them as failed
+    Check for jobs that have been running too long and verify their status with Zhaoli API
+    before marking them as failed
     """
     db = get_db()
     try:
@@ -454,20 +455,127 @@ def check_long_running_jobs():
             VideoJob.started_at < timeout_time
         ).all()
         
+        actually_failed_jobs = []
+        
         for job in long_running_jobs:
-            job.update_status(JobStatus.FAILED, f"Job timed out after {timeout_minutes} minutes")
-            create_status_history(db, job, JobStatus.PROCESSING.value, JobStatus.FAILED.value, "Job timed out")
+            # Before marking as failed, check the actual status with Zhaoli API
+            if job.zhaoli_task_id:
+                try:
+                    from backend.services.ghostcut_client import GhostCutClient
+                    client = GhostCutClient(
+                        app_key=settings.ghostcut_api_key,
+                        app_secret=settings.ghostcut_app_secret,
+                        api_url=settings.ghostcut_api_url
+                    )
+                    
+                    status_result = client.get_job_status(job.zhaoli_task_id)
+                    
+                    if status_result.get('status') == 'processing':
+                        # Job is still actively processing, update progress and continue
+                        progress = status_result.get('progress', 0)
+                        message = status_result.get('message', 'Still processing...')
+                        
+                        job.progress_percentage = progress
+                        job.progress_message = f"Long-running job still in progress: {message}"
+                        logger.info(f"Job {job.id} is still processing at {progress}%")
+                        continue
+                        
+                    elif status_result.get('status') == 'completed':
+                        # Job actually completed, update status
+                        job.update_status(JobStatus.COMPLETED, "Processing completed (detected during timeout check)")
+                        create_status_history(db, job, JobStatus.PROCESSING.value, JobStatus.COMPLETED.value, "Completed during timeout check")
+                        continue
+                        
+                except Exception as api_error:
+                    logger.warning(f"Could not check Zhaoli status for job {job.id}: {api_error}")
+                    # If we can't check status, proceed with timeout logic
+            
+            # If we reach here, the job is genuinely stuck or failed
+            job.update_status(JobStatus.FAILED, f"Job timed out after {timeout_minutes} minutes (verified with API)")
+            create_status_history(db, job, JobStatus.PROCESSING.value, JobStatus.FAILED.value, "Job timed out (API verified)")
+            actually_failed_jobs.append(job)
             
             # Send failure notification
-            send_failure_notification.delay(str(job.user_id), str(job.id), "Job timed out")
+            send_failure_notification.delay(str(job.user_id), str(job.id), f"Job timed out after {timeout_minutes} minutes")
         
         db.commit()
         
+        if actually_failed_jobs:
+            logger.info(f"Marked {len(actually_failed_jobs)} truly long-running jobs as failed")
         if long_running_jobs:
-            logger.info(f"Marked {len(long_running_jobs)} long-running jobs as failed")
+            logger.info(f"Checked {len(long_running_jobs)} long-running jobs, {len(actually_failed_jobs)} actually failed")
             
     except Exception as e:
         logger.error(f"Error checking long-running jobs: {e}")
+    finally:
+        db.close()
+
+@app.task
+def update_processing_jobs_status():
+    """
+    Periodic task to update status of all processing jobs by checking with Zhaoli API
+    This prevents frontend timeout issues by keeping job status current
+    """
+    db = get_db()
+    try:
+        processing_jobs = db.query(VideoJob).filter(
+            VideoJob.status == JobStatus.PROCESSING.value,
+            VideoJob.zhaoli_task_id.isnot(None)
+        ).all()
+        
+        updated_count = 0
+        completed_count = 0
+        
+        for job in processing_jobs:
+            try:
+                from backend.services.ghostcut_client import GhostCutClient
+                client = GhostCutClient(
+                    app_key=settings.ghostcut_api_key,
+                    app_secret=settings.ghostcut_app_secret,
+                    api_url=settings.ghostcut_api_url
+                )
+                
+                status_result = client.get_job_status(job.zhaoli_task_id)
+                
+                if status_result.get('status') == 'completed':
+                    # Job completed, update status
+                    job.update_status(JobStatus.COMPLETED, "Processing completed successfully")
+                    create_status_history(db, job, JobStatus.PROCESSING.value, JobStatus.COMPLETED.value, "Completed (auto-detected)")
+                    completed_count += 1
+                    
+                    # Send completion notification
+                    send_completion_notification.delay(str(job.user_id), str(job.id))
+                    
+                elif status_result.get('status') == 'processing':
+                    # Update progress information
+                    progress = status_result.get('progress', job.progress_percentage or 0)
+                    message = status_result.get('message', 'Processing...')
+                    
+                    job.progress_percentage = progress
+                    job.progress_message = message
+                    updated_count += 1
+                    
+                elif status_result.get('status') == 'error':
+                    # Job failed
+                    error_msg = status_result.get('error', 'Unknown error from Zhaoli API')
+                    job.update_status(JobStatus.FAILED, error_msg)
+                    create_status_history(db, job, JobStatus.PROCESSING.value, JobStatus.FAILED.value, f"Failed: {error_msg}")
+                    
+                    # Send failure notification
+                    send_failure_notification.delay(str(job.user_id), str(job.id), error_msg)
+                    
+            except Exception as api_error:
+                logger.warning(f"Could not update status for job {job.id}: {api_error}")
+                # Continue with other jobs even if one fails
+                continue
+        
+        db.commit()
+        
+        if updated_count > 0 or completed_count > 0:
+            logger.info(f"Updated {updated_count} processing jobs, {completed_count} completed")
+            
+    except Exception as e:
+        logger.error(f"Error updating processing jobs status: {e}")
     finally:
         db.close()
 

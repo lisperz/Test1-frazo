@@ -10,8 +10,10 @@ from datetime import datetime
 
 from backend.models.database import get_database
 from backend.models.user import User, CreditTransaction, APIKey, SubscriptionTier
+from backend.models.job import VideoJob, JobStatus
 from backend.auth.dependencies import get_current_user
 from backend.auth.jwt_handler import JWTHandler
+from sqlalchemy import func
 
 router = APIRouter()
 
@@ -77,6 +79,19 @@ class SubscriptionTierResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UserStatsResponse(BaseModel):
+    total_jobs: int
+    pending_jobs: int
+    processing_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    success_rate: float
+    credits_used_this_month: int
+    monthly_credit_limit: Optional[int]
+    
+    class Config:
+        from_attributes = True
+
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user)
@@ -93,6 +108,53 @@ async def get_current_user_profile(
         credits_balance=current_user.credits_balance,
         created_at=current_user.created_at,
         last_login_at=current_user.last_login_at
+    )
+
+@router.get("/me/stats", response_model=UserStatsResponse)
+async def get_user_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_database)
+):
+    """Get user statistics"""
+    
+    # Get job counts by status
+    total_jobs = db.query(VideoJob).filter(VideoJob.user_id == current_user.id).count()
+    pending_jobs = db.query(VideoJob).filter(
+        VideoJob.user_id == current_user.id,
+        VideoJob.status.in_([JobStatus.QUEUED, JobStatus.PENDING])
+    ).count()
+    processing_jobs = db.query(VideoJob).filter(
+        VideoJob.user_id == current_user.id,
+        VideoJob.status == JobStatus.PROCESSING
+    ).count()
+    completed_jobs = db.query(VideoJob).filter(
+        VideoJob.user_id == current_user.id,
+        VideoJob.status == JobStatus.COMPLETED
+    ).count()
+    failed_jobs = db.query(VideoJob).filter(
+        VideoJob.user_id == current_user.id,
+        VideoJob.status == JobStatus.FAILED
+    ).count()
+    
+    # Calculate success rate
+    total_finished = completed_jobs + failed_jobs
+    success_rate = (completed_jobs / total_finished * 100) if total_finished > 0 else 0.0
+    
+    # Get credits used this month (simplified - using total used credits for now)
+    credits_used = db.query(func.coalesce(func.sum(CreditTransaction.amount), 0)).filter(
+        CreditTransaction.user_id == current_user.id,
+        CreditTransaction.transaction_type == "debit"
+    ).scalar()
+    
+    return UserStatsResponse(
+        total_jobs=total_jobs,
+        pending_jobs=pending_jobs,
+        processing_jobs=processing_jobs,
+        completed_jobs=completed_jobs,
+        failed_jobs=failed_jobs,
+        success_rate=round(success_rate, 1),
+        credits_used_this_month=abs(credits_used) if credits_used else 0,
+        monthly_credit_limit=current_user.subscription_tier.credits_per_month
     )
 
 @router.put("/me", response_model=UserResponse)

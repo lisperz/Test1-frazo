@@ -59,7 +59,7 @@ class User(Base):
     last_login_at = Column(DateTime)
     login_count = Column(Integer, default=0)
     preferences = Column(JSONB, default=dict)
-    metadata = Column(JSONB, default=dict)
+    user_metadata = Column(JSONB, default=dict)
     
     # Relationships
     subscription_tier = relationship("SubscriptionTier", back_populates="users")
@@ -182,7 +182,7 @@ class CreditTransaction(Base):
     reference_id = Column(String(255))
     expires_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSONB, default=dict)
+    transaction_metadata = Column(JSONB, default=dict)
     
     # Relationships
     user = relationship("User", back_populates="credit_transactions")

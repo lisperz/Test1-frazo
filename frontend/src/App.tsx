@@ -1,33 +1,46 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 
 import { useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Layout/Navbar';
 import Sidebar from './components/Layout/Sidebar';
 import LoadingScreen from './components/Common/LoadingScreen';
+import ErrorBoundary from './components/Common/ErrorBoundary';
 
 // Pages
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
+import SimpleDashboardPage from './pages/SimpleDashboardPage';
+import BasicDashboardPage from './pages/BasicDashboardPage';
+import MinimalDashboard from './pages/MinimalDashboard';
+import SafeDashboard from './pages/SafeDashboard';
+import DebugDashboard from './pages/DebugDashboard';
 import UploadPage from './pages/UploadPage';
 import JobsPage from './pages/JobsPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
 import VideoInpaintingPage from './pages/VideoInpaintingPage';
 import SimpleVideoInpaintingPage from './pages/SimpleVideoInpaintingPage';
+import TranslateNewPage from './pages/TranslateNewPage';
+import VideoEditorPage from './pages/VideoEditorPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
   
+  // Check localStorage as backup
+  const token = localStorage.getItem('access_token');
+  
   if (loading) {
     return <LoadingScreen />;
   }
   
-  if (!user) {
+  if (!user && !token) {
     return <Navigate to="/login" replace />;
   }
   
@@ -55,17 +68,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   
   // For simple video inpainting page, render without layout
-  if (window.location.pathname === '/') {
+  if (window.location.pathname === '/simple') {
     return <>{children}</>;
   }
   
-  if (!user) {
+  // Show sidebar layout for authenticated users or specific public routes
+  const showSidebarRoutes = ['/translate', '/public-translate'];
+  const shouldShowSidebar = user || showSidebarRoutes.includes(window.location.pathname);
+  
+  if (!shouldShowSidebar) {
     return <>{children}</>;
   }
   
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <Navbar onMenuClick={() => setSidebarOpen(true)} />
       <Sidebar 
         open={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
@@ -74,12 +90,35 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          pt: { xs: 7, sm: 8 }, // Account for navbar height
-          pl: { sm: 0 }, // Sidebar takes care of padding on larger screens
+          pl: { sm: '280px' }, // Account for sidebar width on desktop
           minHeight: '100vh',
           backgroundColor: 'background.default',
+          position: 'relative',
         }}
       >
+        {/* Mobile menu button */}
+        <Box
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 1,
+          }}
+        >
+          <IconButton
+            onClick={() => setSidebarOpen(true)}
+            sx={{
+              backgroundColor: 'background.paper',
+              boxShadow: 1,
+              '&:hover': {
+                backgroundColor: 'background.paper',
+              },
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+        </Box>
         {children}
       </Box>
     </Box>
@@ -88,11 +127,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const App: React.FC = () => {
   return (
-    <Layout>
-      <Routes>
+    <ThemeProvider>
+      <Layout>
+        <Routes>
         {/* Public Routes */}
         <Route 
           path="/" 
+          element={<Navigate to="/translate" replace />}
+        />
+        <Route 
+          path="/simple" 
           element={<SimpleVideoInpaintingPage />}
         />
         <Route 
@@ -112,13 +156,21 @@ const App: React.FC = () => {
           } 
         />
         
-        {/* Protected Routes */}
+        {/* Dashboard - Wrapped with ErrorBoundary for debugging */}
         <Route 
           path="/dashboard" 
           element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
+            <ErrorBoundary>
+              <SafeDashboard />
+            </ErrorBoundary>
+          } 
+        />
+        <Route 
+          path="/debug-dashboard" 
+          element={
+            <ErrorBoundary>
+              <DebugDashboard />
+            </ErrorBoundary>
           } 
         />
         <Route 
@@ -160,13 +212,70 @@ const App: React.FC = () => {
           element={<VideoInpaintingPage />} 
         />
         
+        {/* Video Editor Route - Protected */}
+        <Route 
+          path="/editor" 
+          element={
+            <ProtectedRoute>
+              <VideoEditorPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Translation Routes */}
+        <Route 
+          path="/translate" 
+          element={<TranslateNewPage />} 
+        />
+        <Route 
+          path="/history" 
+          element={
+            <ProtectedRoute>
+              <JobsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/credits" 
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/docs" 
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/faq" 
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/support" 
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        
         {/* Fallback Route */}
         <Route 
           path="*" 
           element={<Navigate to="/dashboard" replace />} 
         />
-      </Routes>
-    </Layout>
+        </Routes>
+      </Layout>
+    </ThemeProvider>
   );
 };
 

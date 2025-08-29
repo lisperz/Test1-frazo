@@ -65,9 +65,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authApi.login(email, password);
       
-      // Store tokens
+      // Store tokens and user data
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
+      localStorage.setItem('user', JSON.stringify(response.user));
       
       setUser(response.user);
     } catch (error: any) {
@@ -89,9 +90,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         last_name: lastName,
       });
       
-      // Store tokens
+      // Store tokens and user data
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
+      localStorage.setItem('user', JSON.stringify(response.user));
       
       setUser(response.user);
     } catch (error: any) {
@@ -108,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear local storage and state
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
       setUser(null);
     }
   };

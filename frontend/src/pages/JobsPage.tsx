@@ -52,7 +52,7 @@ import { useWebSocket } from '../contexts/WebSocketContext';
 const JobsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { connectionStatus } = useWebSocket();
+  const { isConnected } = useWebSocket();
   
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -168,9 +168,9 @@ const JobsPage: React.FC = () => {
       </Box>
 
       {/* Connection Status */}
-      {connectionStatus !== 'connected' && (
+      {!isConnected && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          Real-time updates are currently {connectionStatus}. Job statuses may not reflect the latest changes.
+          Real-time updates are currently {isConnected ? 'connected' : 'disconnected'}. Job statuses may not reflect the latest changes.
         </Alert>
       )}
 
@@ -368,6 +368,19 @@ const JobsPage: React.FC = () => {
         onClose={handleCloseMenu}
       >
         <MenuList>
+          {selectedJob?.status === 'completed' && selectedJob?.output_url && (
+            <MenuListItem
+              onClick={() => {
+                window.open(selectedJob.output_url, '_blank');
+                handleCloseMenu();
+              }}
+            >
+              <ListItemIcon>
+                <Download />
+              </ListItemIcon>
+              <ListItemText>Download Video</ListItemText>
+            </MenuListItem>
+          )}
           {selectedJob?.status === 'processing' && (
             <MenuListItem
               onClick={() => cancelJobMutation.mutate(selectedJob.id)}

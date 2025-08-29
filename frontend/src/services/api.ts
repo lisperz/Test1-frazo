@@ -139,7 +139,7 @@ export interface SubscriptionTier {
 }
 
 // Auth API
-export const authApi = {
+const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     const response: AxiosResponse<LoginResponse> = await api.post('/auth/login', {
       email,
@@ -171,7 +171,7 @@ export const authApi = {
 };
 
 // Jobs API
-export const jobsApi = {
+const jobsApi = {
   getJobs: async (page = 1, pageSize = 20, statusFilter?: string): Promise<JobListResponse> => {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -188,12 +188,14 @@ export const jobsApi = {
 
   getUserJobs: async (params: { limit?: number; offset?: number; search?: string; status?: string } = {}): Promise<any> => {
     const queryParams = new URLSearchParams();
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.offset) queryParams.append('offset', params.offset.toString());
-    if (params.search) queryParams.append('search', params.search);
-    if (params.status) queryParams.append('status', params.status);
+    if (params.limit) queryParams.append('page_size', params.limit.toString());
+    if (params.offset) {
+      const page = Math.floor(params.offset / (params.limit || 10)) + 1;
+      queryParams.append('page', page.toString());
+    }
+    if (params.status) queryParams.append('status_filter', params.status);
 
-    const response = await api.get(`/jobs/my?${queryParams}`);
+    const response = await api.get(`/jobs/?${queryParams}`);
     return response.data;
   },
 
@@ -238,10 +240,50 @@ export const jobsApi = {
     const response = await api.get('/jobs/templates/');
     return response.data;
   },
+
+  // Direct upload and process endpoint (NO CELERY QUEUE - IMMEDIATE PROCESSING!)
+  uploadAndProcess: async (file: File, displayName?: string): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    if (displayName) {
+      formData.append('display_name', displayName);
+    }
+
+    // Use the new direct processing endpoint that bypasses Celery
+    const response = await api.post('/direct/direct-process', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  
+  // Batch process multiple videos at once
+  batchProcess: async (files: File[]): Promise<any> => {
+    const formData = new FormData();
+    
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    const response = await api.post('/direct/batch-process', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  
+  // Get real-time job status
+  getJobStatusDirect: async (jobId: string): Promise<any> => {
+    const response = await api.get(`/direct/job-status/${jobId}`);
+    return response.data;
+  },
 };
 
 // Users API
-export const usersApi = {
+const usersApi = {
   getProfile: async (): Promise<User> => {
     const response: AxiosResponse<User> = await api.get('/users/me');
     return response.data;
@@ -293,7 +335,7 @@ export const usersApi = {
 };
 
 // Files API
-export const filesApi = {
+const filesApi = {
   downloadFile: async (fileId: string): Promise<Blob> => {
     const response = await api.get(`/files/${fileId}/download`, {
       responseType: 'blob',
@@ -319,7 +361,7 @@ export const filesApi = {
 };
 
 // Admin API
-export const adminApi = {
+const adminApi = {
   getSystemStats: async (): Promise<any> => {
     const response = await api.get('/admin/stats');
     return response.data;
@@ -355,7 +397,7 @@ export const adminApi = {
 };
 
 // Chunked Upload API
-export const chunkedUploadApi = {
+const chunkedUploadApi = {
   initializeUpload: (data: {
     filename: string;
     total_size: number;

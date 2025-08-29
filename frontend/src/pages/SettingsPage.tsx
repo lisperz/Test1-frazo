@@ -51,7 +51,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usersApi } from '../services/api';
 
 const SettingsPage: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState('profile');
@@ -96,8 +96,8 @@ const SettingsPage: React.FC = () => {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => usersApi.updateProfile(data),
-    onSuccess: (data) => {
-      updateUser(data);
+    onSuccess: async (data) => {
+      await refreshUser();
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });

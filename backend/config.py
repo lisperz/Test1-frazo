@@ -4,7 +4,8 @@ Configuration management for video text inpainting service
 
 import os
 from typing import Optional, List
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 from decouple import config
 
 class Settings(BaseSettings):
@@ -39,18 +40,27 @@ class Settings(BaseSettings):
     # AWS settings
     aws_access_key_id: str = config("AWS_ACCESS_KEY_ID", default="")
     aws_secret_access_key: str = config("AWS_SECRET_ACCESS_KEY", default="")
-    aws_region: str = config("AWS_REGION", default="us-east-1")
-    aws_s3_bucket: str = config("AWS_S3_BUCKET", default="video-inpainting-files")
+    aws_region: str = config("AWS_REGION", default="us-east-2")
+    aws_s3_bucket: str = config("AWS_S3_BUCKET", default="taylorswiftnyu")
     
     # Ghostcut API settings
     ghostcut_app_key: str = config("GHOSTCUT_APP_KEY", default="")
     ghostcut_app_secret: str = config("GHOSTCUT_APP_SECRET", default="")
     ghostcut_uid: str = config("GHOSTCUT_UID", default="")
+    ghostcut_api_key: str = config("GHOSTCUT_API_KEY", default="")
+    ghostcut_api_url: str = config("GHOSTCUT_API_URL", default="https://api.ghostcut.com")
     
     # File upload settings
     max_upload_size_mb: int = config("MAX_UPLOAD_SIZE_MB", default=1000, cast=int)
     allowed_video_extensions: List[str] = [".mp4", ".avi", ".mov", ".mkv", ".webm"]
+    upload_path: str = config("UPLOAD_PATH", default="/app/uploads")
     upload_temp_dir: str = config("UPLOAD_TEMP_DIR", default="./temp_uploads")
+    api_base_url: str = config("API_BASE_URL", default="http://localhost:8000")
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Convert cors_origins string to list"""
+        return [origin.strip() for origin in self.cors_origins.split(',')]
     
     # Rate limiting
     rate_limit_requests_per_minute: int = config("RATE_LIMIT_REQUESTS_PER_MINUTE", default=60, cast=int)
@@ -65,10 +75,10 @@ class Settings(BaseSettings):
     
     # Frontend settings
     frontend_url: str = config("FRONTEND_URL", default="http://localhost:3000")
-    cors_origins: List[str] = config("CORS_ORIGINS", default="http://localhost:3000,http://localhost:3001", cast=lambda v: [s.strip() for s in v.split(',')])
+    cors_origins: str = config("CORS_ORIGINS", default="http://localhost:3000,http://localhost:80")
     
     # Processing settings
-    default_processing_timeout_minutes: int = config("DEFAULT_PROCESSING_TIMEOUT_MINUTES", default=30, cast=int)
+    default_processing_timeout_minutes: int = config("DEFAULT_PROCESSING_TIMEOUT_MINUTES", default=180, cast=int)
     max_concurrent_jobs_per_user: int = config("MAX_CONCURRENT_JOBS_PER_USER", default=3, cast=int)
     
     # Credit system

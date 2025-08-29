@@ -4,7 +4,7 @@ JWT token handling for authentication
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 import secrets
 

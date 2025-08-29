@@ -59,7 +59,7 @@ class File(Base):
     # Audit
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, default=dict)
+    file_metadata = Column(JSONB, default=dict)
     
     # Relationships
     user = relationship("User", back_populates="files")

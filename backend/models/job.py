@@ -2,7 +2,7 @@
 Video job processing models
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, DECIMAL
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, ForeignKey, DECIMAL
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -43,6 +43,7 @@ class VideoJob(Base):
     # File information
     input_file_size_mb = Column(DECIMAL(8, 2))
     output_file_size_mb = Column(DECIMAL(8, 2))
+    output_url = Column(String(1000))  # URL to download the processed video
     video_duration_seconds = Column(Integer)
     video_resolution = Column(String(20))
     
@@ -61,7 +62,7 @@ class VideoJob(Base):
     # Metadata and audit
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSONB, default=dict)
+    job_metadata = Column(JSONB, default=dict)
     
     # Relationships
     user = relationship("User", back_populates="video_jobs")
@@ -162,7 +163,7 @@ class JobStatusHistory(Base):
     progress_percentage = Column(Integer)
     message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSONB, default=dict)
+    status_metadata = Column(JSONB, default=dict)
     
     # Relationships
     job = relationship("VideoJob", back_populates="status_history")

@@ -2,7 +2,7 @@
 File management routes
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File as FastAPIFile
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -11,6 +11,7 @@ from datetime import datetime
 import uuid
 import os
 import mimetypes
+import shutil
 
 from backend.models.database import get_database
 from backend.models.user import User
@@ -41,6 +42,84 @@ class FileListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+class FileUploadResponse(BaseModel):
+    file_id: str
+    url: str
+    message: str
+
+@router.post("/upload", response_model=FileUploadResponse)
+async def upload_file(
+    file: UploadFile = FastAPIFile(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_database)
+):
+    """Upload a file"""
+    
+    # Validate file size (max 2GB)
+    max_size = 2 * 1024 * 1024 * 1024  # 2GB
+    if file.size and file.size > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size exceeds maximum of 2GB"
+        )
+    
+    # Validate file type for videos
+    allowed_types = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported file type: {file.content_type}"
+        )
+    
+    # Generate unique filename
+    file_id = uuid.uuid4()
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{file_id}{file_extension}"
+    
+    # Ensure upload directory exists
+    upload_dir = os.path.join(settings.upload_path, str(current_user.id))
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Save file to disk
+    file_path = os.path.join(upload_dir, unique_filename)
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
+    
+    # Get file size
+    file_size = os.path.getsize(file_path)
+    
+    # Create database record
+    db_file = File(
+        id=file_id,
+        user_id=current_user.id,
+        filename=unique_filename,
+        original_filename=file.filename,
+        file_type='video',
+        mime_type=file.content_type,
+        file_size_bytes=file_size,
+        storage_path=file_path,
+        storage_provider='local',  # Using local storage for now
+        is_public=False
+    )
+    
+    db.add(db_file)
+    db.commit()
+    
+    # Generate URL for the file
+    file_url = f"{settings.api_base_url}/api/v1/files/{file_id}/download"
+    
+    return FileUploadResponse(
+        file_id=str(file_id),
+        url=file_url,
+        message="File uploaded successfully"
+    )
 
 @router.get("/", response_model=FileListResponse)
 async def get_user_files(

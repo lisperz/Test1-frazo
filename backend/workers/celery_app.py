@@ -24,27 +24,35 @@ app.conf.update(
         'backend.workers.video_tasks.process_video': {'queue': 'video_processing'},
         'backend.workers.video_tasks.check_ghostcut_status': {'queue': 'status_checks'},
         'backend.workers.video_tasks.cleanup_job': {'queue': 'cleanup'},
-        'backend.workers.video_tasks.send_notification': {'queue': 'notifications'}
+        'backend.workers.video_tasks.send_notification': {'queue': 'notifications'},
+        'backend.workers.ghostcut_tasks.process_ghostcut_video': {'queue': 'video_processing'},
+        'backend.workers.ghostcut_tasks.check_ghostcut_completion': {'queue': 'status_checks'}
     },
     
-    # Task configuration
+    # Task configuration for immediate processing
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
+    task_eager=False,  # Don't execute tasks immediately in the same process
+    task_always_eager=False,  # Always use workers, not local execution
+    broker_connection_retry_on_startup=True,  # Auto-retry connections
+    broker_heartbeat=30,  # Short heartbeat for fast detection
     
-    # Worker configuration
+    # Worker configuration for immediate task processing
     worker_prefetch_multiplier=1,  # Process one task at a time for video processing
     task_acks_late=True,
     worker_max_tasks_per_child=10,  # Restart workers after 10 tasks to prevent memory leaks
+    worker_hijack_root_logger=False,  # Don't hijack logging
+    worker_disable_rate_limits=True,  # Disable rate limits for immediate processing
     
     # Result backend settings
     result_expires=3600,  # Results expire after 1 hour
     
-    # Task time limits
-    task_time_limit=30 * 60,  # 30 minutes hard limit
-    task_soft_time_limit=25 * 60,  # 25 minutes soft limit
+    # Task time limits - Remove limits for long-running video processing
+    task_time_limit=None,  # No hard limit
+    task_soft_time_limit=None,  # No soft limit
     
     # Retry configuration
     task_default_retry_delay=60,  # 1 minute default retry delay
@@ -66,7 +74,15 @@ app.conf.update(
         },
         'check-long-running-jobs': {
             'task': 'backend.workers.video_tasks.check_long_running_jobs',
-            'schedule': 300.0,  # Run every 5 minutes
+            'schedule': 600.0,  # Run every 10 minutes (reduced from 5 due to smarter checking)
+        },
+        'update-processing-jobs-status': {
+            'task': 'backend.workers.video_tasks.update_processing_jobs_status',
+            'schedule': 120.0,  # Run every 2 minutes to keep status current
+        },
+        'check-ghostcut-completion': {
+            'task': 'backend.workers.ghostcut_tasks.check_ghostcut_completion',
+            'schedule': 120.0,  # Check every 2 minutes for completed jobs
         }
     }
 )
@@ -89,6 +105,7 @@ def task_failure_handler(sender=None, task_id=None, exception=None, einfo=None, 
 
 # Import tasks to register them
 from backend.workers import video_tasks
+from backend.workers import ghostcut_tasks
 
 if __name__ == '__main__':
     app.start()

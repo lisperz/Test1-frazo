@@ -37,10 +37,12 @@ websockets==12.0
 # Configuration management
 python-decouple==3.8
 pydantic-settings==2.0.3
+email-validator==2.1.0
 
 # HTTP client for external APIs
 httpx==0.25.2
 aiofiles==23.2.1
+aiohttp==3.9.1
 
 # Monitoring and logging
 structlog==23.2.0

@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     git \
     ffmpeg \
     libpq-dev \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -25,8 +26,11 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY backend/ .
+COPY backend/ ./backend/
 COPY video_processing.py .
+
+# Set Python path
+ENV PYTHONPATH=/app
 
 # Create necessary directories
 RUN mkdir -p /app/uploads /app/temp /app/logs \
@@ -43,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the application
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

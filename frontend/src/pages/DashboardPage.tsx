@@ -38,18 +38,22 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Get user stats
-  const { data: stats } = useQuery({
+  // Get user stats (with error handling)
+  const { data: stats, error: statsError } = useQuery({
     queryKey: ['user-stats'],
     queryFn: usersApi.getUserStats,
     refetchInterval: 30000, // Refresh every 30 seconds
+    retry: false, // Don't retry on error
+    enabled: true,
   });
 
-  // Get recent jobs
-  const { data: recentJobs = [], refetch: refetchJobs } = useQuery({
+  // Get recent jobs (with error handling)
+  const { data: recentJobs = [], refetch: refetchJobs, error: jobsError } = useQuery({
     queryKey: ['recent-jobs'],
     queryFn: () => jobsApi.getUserJobs({ limit: 5 }),
     refetchInterval: 10000, // Refresh every 10 seconds
+    retry: false, // Don't retry on error
+    enabled: true,
   });
 
   const getStatusColor = (status: string) => {
@@ -109,6 +113,17 @@ const DashboardPage: React.FC = () => {
           Welcome back, {user?.first_name || 'User'}! Here's your account overview.
         </Typography>
       </Box>
+
+      {/* Error Messages */}
+      {(statsError || jobsError) && (
+        <Alert severity="warning" sx={{ mb: 4 }}>
+          <Typography>
+            Some dashboard data may not be available. API connection issues detected.
+          </Typography>
+          {statsError && <Typography variant="caption">Stats: {String(statsError)}</Typography>}
+          {jobsError && <Typography variant="caption">Jobs: {String(jobsError)}</Typography>}
+        </Alert>
+      )}
 
       {/* User Subscription Alert */}
       <Alert severity="info" sx={{ mb: 4 }}>

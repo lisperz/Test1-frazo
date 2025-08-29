@@ -49,6 +49,8 @@ services:
       
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
       
       # JWT
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-in-production}
@@ -62,7 +64,15 @@ services:
       
       # External APIs
       GHOSTCUT_API_KEY: ${GHOSTCUT_API_KEY}
-      GHOSTCUT_API_URL: ${GHOSTCUT_API_URL:-https://api.ghostcut.com}
+      GHOSTCUT_APP_SECRET: ${GHOSTCUT_APP_SECRET}
+      GHOSTCUT_UID: ${GHOSTCUT_UID}
+      GHOSTCUT_API_URL: ${GHOSTCUT_API_URL:-https://api.zhaoli.com}
+      
+      # AWS
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       
       # Email (optional)
       SMTP_HOST: ${SMTP_HOST}
@@ -110,7 +120,15 @@ services:
       
       # External APIs
       GHOSTCUT_API_KEY: ${GHOSTCUT_API_KEY}
-      GHOSTCUT_API_URL: ${GHOSTCUT_API_URL:-https://api.ghostcut.com}
+      GHOSTCUT_APP_SECRET: ${GHOSTCUT_APP_SECRET}
+      GHOSTCUT_UID: ${GHOSTCUT_UID}
+      GHOSTCUT_API_URL: ${GHOSTCUT_API_URL:-https://api.zhaoli.com}
+      
+      # AWS
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       
       # Environment
       ENVIRONMENT: ${ENVIRONMENT:-development}

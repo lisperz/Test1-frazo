@@ -13,7 +13,8 @@ from contextlib import asynccontextmanager
 
 from backend.config import settings, validate_settings
 from backend.models.database import init_database
-from backend.api.routes import auth, users, jobs, files, admin
+from backend.api.routes import auth, users, jobs, files, admin, ghostcut
+from backend.api.routes import upload_and_process, direct_process
 from backend.api.websocket import websocket_router
 
 # Configure logging
@@ -112,11 +113,17 @@ async def log_requests(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception handler: {exc}", exc_info=True)
+    import traceback
+    error_detail = str(exc) if settings.debug else "Internal server error"
+    traceback_str = traceback.format_exc() if settings.debug else None
+    if traceback_str:
+        logger.error(f"Traceback: {traceback_str}")
     return JSONResponse(
         status_code=500,
         content={
-            "detail": "Internal server error",
-            "error_id": str(int(time.time()))  # Simple error ID for tracking
+            "detail": error_detail,
+            "error_id": str(int(time.time())),  # Simple error ID for tracking
+            "traceback": traceback_str if settings.debug else None
         }
     )
 
@@ -184,6 +191,24 @@ app.include_router(
     admin.router,
     prefix="/api/v1/admin",
     tags=["Administration"]
+)
+
+app.include_router(
+    ghostcut.router,
+    prefix="/api/v1/ghostcut",
+    tags=["GhostCut Video Editor"]
+)
+
+app.include_router(
+    upload_and_process.router,
+    prefix="/api/v1",
+    tags=["Upload and Process"]
+)
+
+app.include_router(
+    direct_process.router,
+    prefix="/api/v1/direct",
+    tags=["Direct Processing (No Queue)"]
 )
 
 # Include WebSocket router
