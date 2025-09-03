@@ -95,7 +95,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          pl: { sm: '280px' }, // Account for sidebar width on desktop
           minHeight: '100vh',
           backgroundColor: 'background.default',
           position: 'relative',

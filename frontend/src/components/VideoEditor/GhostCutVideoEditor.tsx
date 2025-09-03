@@ -94,9 +94,9 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
       };
       
       const labels = {
-        erasure: '擦除区域',
-        protection: '保护区域',
-        text: '擦除文字',
+        erasure: 'Erasure Area',
+        protection: 'Protection Area',
+        text: 'Erase Text',
       };
 
       return {
@@ -464,11 +464,11 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
           <ArrowBack />
         </IconButton>
         <Typography sx={{ fontSize: '14px', color: '#666' }}>
-          视频擦除
+          Video Erasure
         </Typography>
         <Box sx={{ flex: 1 }} />
         <Typography sx={{ fontSize: '13px', color: '#999' }}>
-          基础版
+          Basic Version
         </Typography>
         <Button
           variant="contained"
@@ -487,7 +487,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
             }
           }}
         >
-          提交
+          Submit
         </Button>
       </Box>
 
@@ -735,7 +735,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                       '&:hover': { bgcolor: '#73d13d' }
                     }}
                   >
-                    确定
+                    Confirm
                   </Button>
                   <Button
                     size="small"
@@ -754,7 +754,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                       }
                     }}
                   >
-                    取消
+                    Cancel
                   </Button>
                 </Box>
               </Box>
@@ -965,7 +965,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                         '&:hover': { bgcolor: '#73d13d' }
                       }}
                     >
-                      完成
+                      Done
                     </Button>
                   </Box>
                 </Rnd>
@@ -1074,7 +1074,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                   bgcolor: canUndo() ? 'rgba(0,0,0,0.08)' : 'transparent'
                 }
               }}
-              title="撤销 (Ctrl+Z)"
+              title="Undo (Ctrl+Z)"
             >
               <Undo />
             </IconButton>
@@ -1089,7 +1089,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                   bgcolor: canRedo() ? 'rgba(0,0,0,0.08)' : 'transparent'
                 }
               }}
-              title="重做 (Ctrl+Y)"
+              title="Redo (Ctrl+Y)"
             >
               <Redo />
             </IconButton>
@@ -1140,7 +1140,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 }
               }}
             >
-              添加擦除区域
+              Add Erasure Area
             </Button>
 
             <Button
@@ -1169,7 +1169,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 }
               }}
             >
-              添加保护区域
+              Add Protection Area
             </Button>
 
             <Button
@@ -1198,7 +1198,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 }
               }}
             >
-              擦除文字
+              Erase Text
             </Button>
 
 
@@ -1230,7 +1230,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               minWidth: 150
             }}>
               <Typography sx={{ fontSize: '11px', color: '#666', whiteSpace: 'nowrap' }}>
-                缩放
+                Zoom
               </Typography>
               <Slider
                 value={timelineZoom}
@@ -1648,6 +1648,24 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               width: `${100 * timelineZoom}%`,
               boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
+              {/* Timeline Indicator spanning entire timeline effects area */}
+              {isVideoReady && duration > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    left: `${progressPercentage}%`,
+                    top: 0,
+                    bottom: 0,
+                    width: '2px',
+                    bgcolor: '#ff4d4f',
+                    zIndex: 100,
+                    pointerEvents: 'none',
+                    boxShadow: '0 0 6px rgba(255, 77, 79, 0.6)',
+                    transform: 'translateX(-1px)',
+                  }}
+                />
+              )}
+              
               {/* Simple header without duplicate buttons */}
               <Box sx={{ 
                 display: 'flex', 
@@ -1658,10 +1676,10 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 borderBottom: '1px solid #e9ecef'
               }}>
                 <Typography sx={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>
-                  效果轨道
+                  Effect Track
                 </Typography>
                 <Typography sx={{ fontSize: '11px', color: '#999' }}>
-                  当前效果 ({timelineEffects.length})
+                  Current Effects ({timelineEffects.length})
                 </Typography>
               </Box>
               
@@ -1696,7 +1714,8 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 width: '100%'
               }}>
                 
-                {timelineEffects.map((effect, index) => {
+  
+              {timelineEffects.map((effect, index) => {
                   // Each effect gets its own row
                   const trackTop = index * 40 + 5; // 40px spacing between rows, 5px top margin
                 
