@@ -21,6 +21,7 @@ interface EffectsStore {
   isPlaying: boolean;
   selectedLabel: 'erasure' | 'protection' | 'text';
   videoUrl: string;
+  zoomLevel: number;  // Added for timeline zoom synchronization
   
   // Undo/Redo functionality
   history: VideoEffect[][];
@@ -36,6 +37,7 @@ interface EffectsStore {
   setIsPlaying: (playing: boolean) => void;
   setSelectedLabel: (label: 'erasure' | 'protection' | 'text') => void;
   setVideoUrl: (url: string) => void;
+  setZoomLevel: (zoom: number) => void;  // Added zoom control
   clearEffects: () => void;
   
   // Undo/Redo actions
@@ -57,6 +59,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
   isPlaying: false,
   selectedLabel: 'erasure',
   videoUrl: '',
+  zoomLevel: 1,  // Default zoom level 1 (100%)
   
   // Undo/Redo state
   history: [[]],
@@ -106,6 +109,8 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
   setSelectedLabel: (label) => set({ selectedLabel: label }),
   
   setVideoUrl: (url) => set({ videoUrl: url }),
+  
+  setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
   
   clearEffects: () => set({ effects: [], selectedEffectId: null, history: [[]], historyIndex: 0 }),
   

@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { useEffectsStore, VideoEffect } from '../../store/effectsStore';
 import { useNavigate } from 'react-router-dom';
+import { calculateProgressPercentage, formatTime as formatTimeUtil, clampTime, handleTimelineInteraction } from '../../utils/timelineUtils';
 
 interface GhostCutVideoEditorProps {
   videoUrl: string;
@@ -47,9 +48,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const frameStripRef = useRef<HTMLDivElement>(null);
   
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  // Local component state
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState<string | null>(null);
@@ -64,20 +63,26 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
   // Edit mode state for existing effects
   const [editingEffectId, setEditingEffectId] = useState<string | null>(null);
   
-  // Timeline zoom state
-  const [timelineZoom, setTimelineZoom] = useState(1);
+  // Timeline interaction state
   const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
   
   // Audio state
   const [isMuted, setIsMuted] = useState(false);
   
+  // Get all state and actions from centralized store
   const {
     effects,
     addEffect,
     updateEffect,
     deleteEffect,
+    currentTime,
+    duration,
+    isPlaying,
+    zoomLevel: timelineZoom,
     setCurrentTime: setStoreTime,
     setDuration: setStoreDuration,
+    setIsPlaying: setStoreIsPlaying,
+    setZoomLevel: setTimelineZoom,
     undo,
     redo,
     canUndo,
@@ -102,8 +107,9 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
       return {
         id: effect.id,
         type: effect.type,
-        startFrame: Math.floor((effect.startTime / duration) * 100),
-        endFrame: Math.floor((effect.endTime / duration) * 100),
+        // Use precise percentage calculation without rounding
+        startFrame: (effect.startTime / duration) * 100,
+        endFrame: (effect.endTime / duration) * 100,
         color: colors[effect.type],
         label: labels[effect.type],
       };
@@ -233,7 +239,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
       const internalPlayer = playerRef.current.getInternalPlayer();
       if (internalPlayer && internalPlayer.currentTime !== undefined) {
         const initialTime = internalPlayer.currentTime || 0;
-        setCurrentTime(initialTime);
+        // Only update the central store
         setStoreTime(initialTime);
       }
     }
@@ -242,18 +248,17 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
   const handleProgress = (state: any) => {
     // Use the most precise time available from ReactPlayer
     const preciseTime = state.playedSeconds || 0;
-    // Keep full precision for accurate millisecond display
-    setCurrentTime(preciseTime);
+    // Update only the central store to maintain single source of truth
     setStoreTime(preciseTime);
   };
 
   const handleDuration = (dur: number) => {
-    setDuration(dur);
+    // Update only the central store
     setStoreDuration(dur);
   };
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    setStoreIsPlaying(!isPlaying);
   };
 
   const handleVolumeToggle = () => {
@@ -262,9 +267,9 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
 
   const handleSeek = (time: number) => {
     if (playerRef.current && duration > 0) {
-      // Ensure high precision seeking
-      const clampedTime = Math.max(0, Math.min(duration, time));
-      setCurrentTime(clampedTime);
+      // Use utility function for clamping
+      const clampedTime = clampTime(time, duration);
+      // Update only the central store
       setStoreTime(clampedTime);
       
       // Seek the player with high precision
@@ -325,26 +330,29 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!frameStripRef.current) return;
       
-      const rect = frameStripRef.current.getBoundingClientRect();
-      const x = moveEvent.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(1, x / rect.width));
-      const newFrame = Math.floor(percentage * 100);
+      // Use centralized timeline interaction for precise calculation
+      const newTime = handleTimelineInteraction(
+        moveEvent,
+        frameStripRef.current,
+        duration,
+        timelineZoom
+      );
       
       // Update the actual effect in store - timeline will auto-sync
       const effect = effects.find(e => e.id === effectId);
       if (effect) {
         if (type === 'start') {
-          const minStartTime = Math.max(0, (newFrame / 100) * duration);
           const maxStartTime = effect.endTime - 0.1; // Minimum 0.1s duration
-          const newStartTime = Math.min(minStartTime, maxStartTime);
+          const newStartTime = Math.min(newTime, maxStartTime);
           updateEffect(effectId, { startTime: newStartTime });
         } else if (type === 'end') {
-          const newEndTime = Math.max((effect.startTime + 0.1), (newFrame / 100) * duration);
-          const maxEndTime = Math.min(newEndTime, duration);
-          updateEffect(effectId, { endTime: maxEndTime });
+          const minEndTime = effect.startTime + 0.1; // Minimum 0.1s duration
+          const newEndTime = Math.max(minEndTime, newTime);
+          updateEffect(effectId, { endTime: clampTime(newEndTime, duration) });
         } else if (type === 'move') {
           const effectDuration = effect.endTime - effect.startTime;
-          const newStartTime = Math.max(0, Math.min(duration - effectDuration, (newFrame / 100) * duration - effectDuration / 2));
+          // Center the drag on the mouse position
+          const newStartTime = clampTime(newTime - effectDuration / 2, duration - effectDuration);
           const newEndTime = newStartTime + effectDuration;
           updateEffect(effectId, {
             startTime: newStartTime,
@@ -385,21 +393,19 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
     setEditingEffectId(null);
   };
 
+  // Use utility function for time formatting
   const formatTime = (seconds: number, includeMs: boolean = false): string => {
+    if (includeMs) {
+      return formatTimeUtil(seconds);
+    }
+    // For simple MM:SS format
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100); // Get centiseconds (hundredths)
-    
-    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    
-    if (includeMs) {
-      return `${timeStr}:${ms.toString().padStart(2, '0')}`;
-    }
-    return timeStr;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // More precise progress calculation with rounding to prevent floating point errors
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  // Use centralized calculation for progress percentage
+  const progressPercentage = calculateProgressPercentage(currentTime, duration);
   
   // Debug logging and initial state sync
   useEffect(() => {
@@ -418,7 +424,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
       // Force a progress update to sync the timeline
       const currentState = playerRef.current.getCurrentTime();
       if (currentState !== undefined && currentState !== currentTime) {
-        setCurrentTime(currentState);
+        // Only update the central store
         setStoreTime(currentState);
       }
     }
@@ -543,8 +549,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
             onProgress={handleProgress}
             onDuration={handleDuration}
             onSeek={(seconds) => {
-              // Sync timeline immediately when seek completes
-              setCurrentTime(seconds);
+              // Sync only to central store
               setStoreTime(seconds);
             }}
             onError={(error) => {
@@ -1305,10 +1310,13 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
             <Box 
               data-timeline-ruler
               onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = Math.max(0, Math.min(1, x / rect.width));
-                const newTime = percentage * duration;
+                // Use centralized timeline interaction handler
+                const newTime = handleTimelineInteraction(
+                  e.nativeEvent,
+                  e.currentTarget,
+                  duration,
+                  timelineZoom
+                );
                 handleSeek(newTime);
               }}
               sx={{
@@ -1336,14 +1344,16 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 pointerEvents: 'none'
               }} />
               
-              {/* Simple time marks - evenly spaced */}
+              {/* Time marks based on actual time positions */}
               {Array.from({ length: Math.min(11, Math.ceil(duration) + 1) }, (_, i) => {
                 const markTime = (i / 10) * duration;
+                // Use the same percentage calculation as effects and timeline indicator
+                const markPercentage = calculateProgressPercentage(markTime, duration);
                 const isMainMark = i % 2 === 0;
                 return (
                   <Box key={i} sx={{
                     position: 'absolute',
-                    left: `${(i * 10)}%`,
+                    left: `${markPercentage}%`,
                     top: 0,
                     bottom: 0,
                     display: 'flex',
@@ -1412,12 +1422,13 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                       }
                       
                       const handleMouseMove = (moveEvent: MouseEvent) => {
-                        const timelineRect = timelineContainer.getBoundingClientRect();
-                        const deltaX = moveEvent.clientX - startX;
-                        const deltaPercentage = (deltaX / timelineRect.width) * 100;
-                        const deltaTime = (deltaPercentage / 100) * duration;
-                        const newTime = Math.max(0, Math.min(duration, startTime + deltaTime));
-                        
+                        // Use centralized timeline interaction
+                        const newTime = handleTimelineInteraction(
+                          moveEvent,
+                          timelineContainer,
+                          duration,
+                          timelineZoom
+                        );
                         handleSeek(newTime);
                       };
                       
@@ -1491,8 +1502,7 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'auto',
-              p: 2
+              overflow: 'auto'
             }}>
             
             {/* Frame Strip - GhostCut Style */}
@@ -1500,11 +1510,13 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               ref={frameStripRef}
               data-frame-strip
               onClick={(e) => {
-                // Calculate click position on frame strip
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = Math.max(0, Math.min(1, x / rect.width));
-                const newTime = percentage * duration;
+                // Use centralized timeline interaction handler
+                const newTime = handleTimelineInteraction(
+                  e.nativeEvent,
+                  e.currentTarget,
+                  duration,
+                  timelineZoom
+                );
                 handleSeek(newTime);
               }}
               sx={{
@@ -1581,12 +1593,13 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                       }
                       
                       const handleMouseMove = (moveEvent: MouseEvent) => {
-                        const frameStripRect = frameStripContainer.getBoundingClientRect();
-                        const deltaX = moveEvent.clientX - startX;
-                        const deltaPercentage = (deltaX / frameStripRect.width) * 100;
-                        const deltaTime = (deltaPercentage / 100) * duration;
-                        const newTime = Math.max(0, Math.min(duration, startTime + deltaTime));
-                        
+                        // Use centralized timeline interaction
+                        const newTime = handleTimelineInteraction(
+                          moveEvent,
+                          frameStripContainer,
+                          duration,
+                          timelineZoom
+                        );
                         handleSeek(newTime);
                       };
                       
@@ -1641,12 +1654,12 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               bgcolor: 'white',
               borderRadius: '6px',
               border: '1px solid #d9d9d9',
-              p: 2,
               display: 'flex',
               flexDirection: 'column',
               minWidth: `${100 * timelineZoom}%`,
               width: `${100 * timelineZoom}%`,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              overflow: 'hidden' // Add overflow hidden to contain the timeline
             }}>
               {/* Timeline Indicator spanning entire timeline effects area */}
               {isVideoReady && duration > 0 && (
@@ -1719,10 +1732,11 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                   // Each effect gets its own row
                   const trackTop = index * 40 + 5; // 40px spacing between rows, 5px top margin
                 
-                  // No left offset needed without labels
-                  const trackWidth = 100; // Full width percentage  
-                  const effectLeft = (effect.startFrame / 100) * trackWidth;
-                  const effectWidth = ((effect.endFrame - effect.startFrame) / 100) * trackWidth;
+                  // Use the same calculation as timeline indicator for perfect sync
+                  const trackWidth = 100; // Full width percentage
+                  // Direct percentage values without additional division
+                  const effectLeft = effect.startFrame;
+                  const effectWidth = effect.endFrame - effect.startFrame;
                 
                 return (
                   <Box
