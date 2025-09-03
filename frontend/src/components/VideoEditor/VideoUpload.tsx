@@ -12,10 +12,9 @@ import { useDropzone } from 'react-dropzone';
 
 interface VideoUploadProps {
   onUpload: (file: File, url: string) => void;
-  onAutoProcess?: (file: File, url: string) => void;
 }
 
-const VideoUpload: React.FC<VideoUploadProps> = ({ onUpload, onAutoProcess }) => {
+const VideoUpload: React.FC<VideoUploadProps> = ({ onUpload }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -163,15 +162,6 @@ const VideoUpload: React.FC<VideoUploadProps> = ({ onUpload, onAutoProcess }) =>
             <Button
               variant="contained"
               color="primary"
-              onClick={() => onAutoProcess && onAutoProcess(selectedFile, localUrl)}
-              disabled={!onAutoProcess}
-            >
-              Auto Process (Remove All Text)
-            </Button>
-            
-            <Button
-              variant="outlined"
-              color="secondary"
               onClick={() => onUpload(selectedFile, localUrl)}
             >
               Manual Edit & Annotate
@@ -190,7 +180,7 @@ const VideoUpload: React.FC<VideoUploadProps> = ({ onUpload, onAutoProcess }) =>
           </Box>
           
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Choose "Auto Process" for automatic text detection and removal, or "Manual Edit" to annotate specific areas.
+            Click "Manual Edit & Annotate" to proceed to the editor where you can mark specific areas for text removal.
           </Typography>
         </Paper>
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Box, IconButton } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 
@@ -65,16 +65,21 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // Layout Component
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   
-  // For simple video inpainting page, render without layout
-  if (window.location.pathname === '/simple') {
+  // For simple video inpainting page and video editor, render without layout for full-screen experience
+  const fullScreenRoutes = ['/simple', '/editor'];
+  console.log('[Layout] Current pathname:', location.pathname);
+  console.log('[Layout] Should use full-screen:', fullScreenRoutes.includes(location.pathname));
+  
+  if (fullScreenRoutes.includes(location.pathname)) {
     return <>{children}</>;
   }
   
   // Show sidebar layout for authenticated users or specific public routes
   const showSidebarRoutes = ['/translate', '/public-translate'];
-  const shouldShowSidebar = user || showSidebarRoutes.includes(window.location.pathname);
+  const shouldShowSidebar = user || showSidebarRoutes.includes(location.pathname);
   
   if (!shouldShowSidebar) {
     return <>{children}</>;
