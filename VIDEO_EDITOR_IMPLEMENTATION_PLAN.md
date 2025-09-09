@@ -33,6 +33,28 @@
   - **Container Hot-Reload**: Proper Docker container rebuilding for code changes
   - **Debug Monitoring**: Real-time parameter conversion validation in logs
 
+### **🔍 Backend Log Monitoring Commands**
+Essential commands for validating parameter conversion and debugging:
+
+```bash
+# Real-time backend logs (all activity)
+docker logs vti-backend -f
+
+# Filter for parameter conversion logs only
+docker logs vti-backend --tail 30 | grep -A 15 -B 5 "videoInpaintMasks"
+
+# Monitor specific conversion validation
+docker logs vti-backend -f | grep -E "videoInpaintMasks|needChineseOcclude|PARAMETER|CONVERSION"
+
+# Check recent API requests and responses
+docker logs vti-backend --tail 50 | grep -E "POST|direct-process|Response: 200"
+
+# Validate exact parameter format sent to GhostCut API
+docker logs vti-backend --tail 20 | grep -A 10 "Calling GhostCut API"
+```
+
+**Usage**: Run these commands while testing frontend submissions to see real-time parameter conversion validation.
+
 ### **2. Complete Video Processing Pipeline** 🎬
 - ✅ **End-to-End Workflow**: From frontend submission to GhostCut API processing
   - **Video Upload**: FormData submission with video file and effects data

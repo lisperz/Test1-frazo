@@ -275,6 +275,29 @@ SMTP_PASSWORD=your-password
 - **Admin dashboard** for system overview
 - **Structured logging** with rotation
 
+### **🔍 Backend Log Monitoring Commands**
+
+Essential commands for real-time debugging and parameter validation:
+
+```bash
+# Real-time backend logs (all activity)
+docker logs vti-backend -f
+
+# View parameter conversion for GhostCut API
+docker logs vti-backend --tail 30 | grep -A 15 -B 5 "videoInpaintMasks"
+
+# Monitor API requests and responses
+docker logs vti-backend --tail 50 | grep -E "POST|direct-process|Response: 200"
+
+# Filter for specific conversion validation
+docker logs vti-backend -f | grep -E "videoInpaintMasks|needChineseOcclude|PARAMETER|CONVERSION"
+
+# Check exact parameters sent to external API
+docker logs vti-backend --tail 20 | grep -A 10 "Calling GhostCut API"
+```
+
+**Use these commands to validate frontend-backend integration and parameter conversion accuracy in real-time.**
+
 ## 🔒 Security Features
 
 - **HTTPS enforcement** in production
@@ -315,6 +338,32 @@ npm test
 # Integration tests
 docker-compose -f docker-compose.test.yml up --abort-on-container-exit
 ```
+
+## 🔧 Debugging & Troubleshooting
+
+### **Parameter Conversion Validation**
+When testing frontend video submissions, validate parameter conversion with:
+
+```bash
+# 1. Start real-time monitoring
+docker logs vti-backend -f
+
+# 2. Submit video from frontend with annotation areas
+# 3. Watch for these key log entries:
+#    - "videoInpaintMasks": Shows converted coordinates and timing
+#    - "needChineseOcclude": Shows mask type logic (1 or 2)
+#    - "Calling GhostCut API": Shows final API payload
+#    - "GhostCut job created": Shows successful submission
+
+# 4. Check specific conversion details
+docker logs vti-backend --tail 30 | grep -A 15 -B 5 "videoInpaintMasks"
+```
+
+### **Common Issues & Solutions**
+- **No logs appearing**: Rebuild container with `docker-compose build backend && docker-compose up -d backend`
+- **Parameter format errors**: Check coordinate precision (should be 2 decimal places)
+- **API failures**: Verify GhostCut API key in environment variables
+- **Frontend data mismatch**: Monitor browser DevTools Network tab to see actual payload sent
 
 ## 📝 License
 
