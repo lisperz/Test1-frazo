@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactPlayer from 'react-player';
 import { Rnd } from 'react-rnd';
+import ReactPlayer from 'react-player';
 import {
   Box,
   Typography,
   Button,
   IconButton,
   Slider,
+  CircularProgress,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -479,9 +480,50 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
         <Button
           variant="contained"
           size="small"
-          onClick={() => {
-            // Submit to GhostCut
-            console.log('Submitting to GhostCut');
+          onClick={async () => {
+            if (!videoFile) {
+              console.error('No video file available for submission');
+              return;
+            }
+
+            try {
+              console.log('Submitting video to GhostCut API...');
+              
+              const formData = new FormData();
+              formData.append('file', videoFile);
+              formData.append('display_name', `Video Processing - ${videoFile.name}`);
+              
+              // Send region/effect data for targeted text removal
+              if (effects.length > 0) {
+                const effectsData = effects.map(effect => ({
+                  type: effect.type, // 'erasure', 'protection', 'text'
+                  startTime: effect.startTime, // ✅ Send actual time in seconds (not percentage)
+                  endTime: effect.endTime,     // ✅ Send actual time in seconds (not percentage)
+                  region: effect.region        // {x, y, width, height} normalized coordinates
+                }));
+                console.log('Sending effects data to backend:', effectsData);
+                formData.append('effects', JSON.stringify(effectsData));
+              }
+
+              const response = await fetch('/api/v1/direct/direct-process', {
+                method: 'POST',
+                body: formData
+              });
+
+              const result = await response.json();
+              
+              if (response.ok) {
+                console.log('Video submitted successfully:', result);
+                // Navigate to jobs page to show the processing status
+                navigate('/jobs');
+              } else {
+                console.error('Submission failed:', result);
+                alert(`Submission failed: ${result.detail || result.message || 'Unknown error'}`);
+              }
+            } catch (error) {
+              console.error('Error submitting video:', error);
+              alert('Error submitting video. Please try again.');
+            }
           }}
           sx={{
             bgcolor: '#1890ff',
@@ -548,11 +590,11 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
             onReady={handleReady}
             onProgress={handleProgress}
             onDuration={handleDuration}
-            onSeek={(seconds) => {
+            onSeek={(seconds: number) => {
               // Sync only to central store
               setStoreTime(seconds);
             }}
-            onError={(error) => {
+            onError={(error: any) => {
               console.error('Video playback error:', error);
             }}
             progressInterval={50}
