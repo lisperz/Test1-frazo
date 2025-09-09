@@ -21,10 +21,12 @@
   - **Region Format**: Proper coordinate pairs `[[x1,y1], [x2,y1], [x2,y2], [x1,y2]]` format
   - **Time Handling**: Correct seconds with centisecond precision (no division errors)
 
-- ✅ **Frontend-Backend Data Structure Compatibility**:
+- ✅ **Complete Frontend-Backend Integration**:
+  - **User Annotation Workflow**: Users draw annotation areas in video editor → Frontend captures precise region data → Backend processes and sends to GhostCut API
+  - **Perfect Data Flow**: `UserInput → AnnotationAreas → EffectsData → FormData → BackendParsing → GhostCutAPI`
   - **Dual Property Support**: Backend handles both `startTime`/`endTime` and `startFrame`/`endFrame`
-  - **Seamless Conversion**: Frontend data automatically converted to GhostCut API format
-  - **Validation Visible**: Parameter conversion logs appear in Docker backend logs
+  - **Seamless Conversion**: Frontend effects automatically converted to GhostCut videoInpaintMasks format
+  - **Validation Visible**: Real-time parameter conversion logs appear in Docker backend logs
 
 - ✅ **Production-Grade Error Handling**:
   - **DateTime Compatibility**: Fixed `datetime.utcnow()` deprecated method issues
@@ -79,6 +81,37 @@
 ---
 
 ## 🔧 TECHNICAL ARCHITECTURE
+
+### **Complete Frontend-Backend Integration Flow**
+```typescript
+// STEP 1: User Annotation in Frontend (GhostCutVideoEditor.tsx)
+1. User draws annotation areas using React-RND on video player
+2. Effects stored with precise coordinates and timing:
+   {
+     type: 'erasure' | 'protection' | 'text',
+     startTime: number,  // Actual seconds (e.g. 1.15s)
+     endTime: number,    // Actual seconds (e.g. 6.61s) 
+     region: { x: 0.2, y: 0.3, width: 0.4, height: 0.2 } // Normalized 0-1
+   }
+
+// STEP 2: Frontend Submission (handleSubmit)
+3. FormData created with video file and effects JSON:
+   formData.append('file', videoFile);
+   formData.append('effects', JSON.stringify(effectsData));
+
+// STEP 3: Backend Processing (direct_process.py)  
+4. Effects parsed and converted to GhostCut API format:
+   - Coordinates: Convert to coordinate pairs [[x1,y1], [x2,y1], [x2,y2], [x1,y2]]
+   - Time: Preserve seconds precision (no conversion needed)
+   - Types: Map 'erasure'→'remove', 'protection'→'keep'
+
+// STEP 4: GhostCut API Integration
+5. Perfect parameter conversion sent to external API:
+   {
+     "videoInpaintMasks": "[{...converted effects...}]",
+     "needChineseOcclude": 1|2  // Based on mask types
+   }
+```
 
 ### **Parameter Conversion System**
 ```typescript
