@@ -73,7 +73,7 @@ async def submit_video_job(
     video_file: UploadFile = File(...),
     display_name: Optional[str] = Form(None),
     processing_config: Optional[str] = Form("{}"),  # JSON string
-    # current_user: User = Depends(validate_user_limits),  # Temporarily disabled for testing
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database)
 ):
     """
@@ -86,23 +86,8 @@ async def submit_video_job(
     from backend.models.user import User
     from backend.workers.ghostcut_tasks import process_ghostcut_video
     
-    # TODO: Re-enable authentication after testing
-    # For now, create a test user
-    current_user = db.query(User).first()
-    if not current_user:
-        # Create test user if none exists
-        current_user = User(
-            id=uuid.uuid4(),
-            email="test@example.com",
-            username="testuser",
-            full_name="Test User",
-            hashed_password="dummy",
-            is_active=True,
-            credits_balance=1000
-        )
-        db.add(current_user)
-        db.commit()
-        db.refresh(current_user)
+    # Use authenticated user from JWT token
+    logger.info(f"🔐 Submitting job for user: {current_user.email} (ID: {current_user.id})")
     
     # Parse processing config
     try:
@@ -351,23 +336,14 @@ async def get_user_jobs(
     page: int = 1,
     page_size: int = 20,
     status_filter: Optional[str] = None,
-    # current_user: User = Depends(get_current_user),  # Temporarily disabled for testing
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database)
 ):
     """
     Get user's video processing jobs
     """
-    # TODO: Re-enable authentication after testing
-    # For now, get test user
-    current_user = db.query(User).first()
-    if not current_user:
-        # Return empty results if no user exists
-        return JobListResponse(
-            jobs=[],
-            total=0,
-            page=page,
-            page_size=page_size
-        )
+    # Use authenticated user from JWT token
+    logger.info(f"🔐 Getting jobs for user: {current_user.email} (ID: {current_user.id})")
     
     # Build query
     query = db.query(VideoJob).filter(VideoJob.user_id == current_user.id)
@@ -426,7 +402,7 @@ async def get_user_jobs(
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job_details(
     job_id: str,
-    # current_user: User = Depends(get_current_user),  # Temporarily disabled for testing
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database)
 ):
     """
@@ -440,9 +416,10 @@ async def get_job_details(
             detail="Invalid job ID format"
         )
     
-    # For testing, just get the job by ID without user check
+    # Use authenticated user to ensure only owner can access job
     job = db.query(VideoJob).filter(
-        VideoJob.id == job_uuid
+        VideoJob.id == job_uuid,
+        VideoJob.user_id == current_user.id
     ).first()
     
     if not job:

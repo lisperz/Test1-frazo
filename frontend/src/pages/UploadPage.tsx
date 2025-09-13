@@ -519,62 +519,6 @@ const UploadPage: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Supported Formats */}
-              <Card sx={{
-                borderRadius: '16px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                overflow: 'hidden'
-              }}>
-                <Box sx={{
-                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                  p: 2,
-                  color: 'white'
-                }}>
-                  <Avatar sx={{ 
-                    background: 'rgba(255,255,255,0.2)',
-                    mb: 1,
-                    width: 32,
-                    height: 32
-                  }}>
-                    <VideoFile sx={{ fontSize: 18 }} />
-                  </Avatar>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    Supported Formats
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                    Wide compatibility with popular video formats
-                  </Typography>
-                </Box>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                    {['MP4', 'AVI', 'MOV', 'MKV', 'WebM'].map((format) => (
-                      <Chip 
-                        key={format} 
-                        label={format}
-                        size="small"
-                        sx={{
-                          background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                          color: 'white',
-                          fontWeight: 600,
-                          fontSize: '0.7rem',
-                          height: '24px',
-                          '& .MuiChip-label': {
-                            px: 1
-                          }
-                        }}
-                      />
-                    ))}
-                  </Box>
-                  <Typography variant="caption" sx={{ 
-                    color: '#718096',
-                    textAlign: 'center',
-                    fontWeight: 500,
-                    fontSize: '0.75rem'
-                  }}>
-                    📁 Maximum file size: 2GB per file
-                  </Typography>
-                </CardContent>
-              </Card>
             </Box>
           </Grid>
         </Grid>

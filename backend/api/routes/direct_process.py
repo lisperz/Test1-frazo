@@ -415,6 +415,7 @@ async def direct_process_video(
     file: UploadFile = FastAPIFile(...),
     display_name: Optional[str] = Form(None),
     effects: Optional[str] = Form(None),  # JSON string of effects data
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database)
 ):
     """
@@ -503,20 +504,8 @@ async def direct_process_video(
         except Exception as e:
             logger.error(f"❌ Error during parameter conversion: {e}")
     
-    # Get or create test user (TODO: Re-enable authentication)
-    current_user = db.query(User).first()
-    if not current_user:
-        current_user = User(
-            id=uuid.uuid4(),
-            email="test@example.com",
-            username="testuser",
-            full_name="Test User",
-            hashed_password="dummy",
-            is_active=True,
-            credits_balance=1000
-        )
-        db.add(current_user)
-        db.commit()
+    # Use authenticated user from JWT token
+    logger.info(f"🔐 Processing video for user: {current_user.email} (ID: {current_user.id})")
     
     # Validate file
     if file.size and file.size > 2 * 1024 * 1024 * 1024:  # 2GB
@@ -692,6 +681,7 @@ async def direct_process_video(
 async def batch_process_videos(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = FastAPIFile(...),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_database)
 ):
     """
@@ -699,20 +689,8 @@ async def batch_process_videos(
     All videos are sent to GhostCut API immediately
     """
     
-    # Get or create test user
-    current_user = db.query(User).first()
-    if not current_user:
-        current_user = User(
-            id=uuid.uuid4(),
-            email="test@example.com",
-            username="testuser",
-            full_name="Test User",
-            hashed_password="dummy",
-            is_active=True,
-            credits_balance=1000
-        )
-        db.add(current_user)
-        db.commit()
+    # Use authenticated user from JWT token
+    logger.info(f"🔐 Processing batch videos for user: {current_user.email} (ID: {current_user.id})")
     
     jobs = []
     
