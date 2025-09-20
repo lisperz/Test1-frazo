@@ -44,6 +44,9 @@ httpx==0.25.2
 aiofiles==23.2.1
 aiohttp==3.9.1
 
+# Note: sync.so does not provide a Python package
+# Using direct HTTP requests for sync.so API integration
+
 # Monitoring and logging
 structlog==23.2.0
 
