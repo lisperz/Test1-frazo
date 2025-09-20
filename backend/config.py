@@ -75,8 +75,8 @@ class Settings(BaseSettings):
     email_from: str = config("EMAIL_FROM", default="noreply@example.com")
     
     # Frontend settings
-    frontend_url: str = config("FRONTEND_URL", default="http://localhost:3000")
-    cors_origins: str = config("CORS_ORIGINS", default="http://localhost:3000,http://localhost:80")
+    frontend_url: str = config("FRONTEND_URL", default="http://localhost:80")
+    cors_origins: str = config("CORS_ORIGINS", default="http://localhost:80")
     
     # Processing settings
     default_processing_timeout_minutes: int = config("DEFAULT_PROCESSING_TIMEOUT_MINUTES", default=180, cast=int)

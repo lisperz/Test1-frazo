@@ -86,7 +86,7 @@ services:
       DEBUG: ${DEBUG:-false}
       
       # CORS
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:80}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:80}
       
       # Timezone
       TZ: America/Chicago
