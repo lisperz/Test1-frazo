@@ -17,7 +17,10 @@ from backend.api.routes import auth, users, jobs, files, admin, ghostcut
 from backend.api.routes import upload_and_process, direct_process
 from backend.api.websocket import websocket_router
 
-# Configure logging
+# Configure logging with timezone
+import os
+os.environ['TZ'] = settings.timezone
+
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

@@ -9,6 +9,7 @@ services:
       POSTGRES_USER: vti_user
       POSTGRES_PASSWORD: ${DB_PASSWORD:-vti_password_123}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+      TZ: America/Chicago
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -86,6 +87,9 @@ services:
       
       # CORS
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:80}
+      
+      # Timezone
+      TZ: America/Chicago
     volumes:
       - upload_data:/app/uploads
       - ./logs:/app/logs
@@ -156,6 +160,8 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     container_name: vti-frontend
+    environment:
+      TZ: America/Chicago
     ports:
       - "80:80"
     depends_on:

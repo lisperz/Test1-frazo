@@ -70,6 +70,10 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
   // Audio state
   const [isMuted, setIsMuted] = useState(false);
   
+  // Submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionProgress, setSubmissionProgress] = useState('');
+  
   // Get all state and actions from centralized store
   const {
     effects,
@@ -480,14 +484,18 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
         <Button
           variant="contained"
           size="small"
+          disabled={isSubmitting}
           onClick={async () => {
             if (!videoFile) {
               console.error('No video file available for submission');
               return;
             }
 
+            setIsSubmitting(true);
+            setSubmissionProgress('Preparing video for processing...');
+
             try {
-              console.log('Submitting video to GhostCut API...');
+              console.log('Submitting video for AI processing...');
               
               const formData = new FormData();
               formData.append('file', videoFile);
@@ -505,6 +513,8 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
                 formData.append('effects', JSON.stringify(effectsData));
               }
 
+              setSubmissionProgress('Uploading video and annotation data...');
+
               const response = await fetch('/api/v1/direct/direct-process', {
                 method: 'POST',
                 body: formData
@@ -514,14 +524,22 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
               
               if (response.ok) {
                 console.log('Video submitted successfully:', result);
-                // Navigate to jobs page to show the processing status
-                navigate('/jobs');
+                setSubmissionProgress('Video processing job created successfully! Redirecting to jobs page...');
+                
+                // Wait a bit to ensure the job appears in the database before navigating
+                setTimeout(() => {
+                  navigate('/jobs');
+                }, 2000);
               } else {
                 console.error('Submission failed:', result);
+                setSubmissionProgress('');
+                setIsSubmitting(false);
                 alert(`Submission failed: ${result.detail || result.message || 'Unknown error'}`);
               }
             } catch (error) {
               console.error('Error submitting video:', error);
+              setSubmissionProgress('');
+              setIsSubmitting(false);
               alert('Error submitting video. Please try again.');
             }
           }}
@@ -535,9 +553,40 @@ const GhostCutVideoEditor: React.FC<GhostCutVideoEditorProps> = ({
             }
           }}
         >
-          Submit
+          {isSubmitting ? 'Processing...' : 'Submit'}
         </Button>
       </Box>
+      
+      {/* Progress indicator for submission */}
+      {isSubmitting && submissionProgress && (
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          py: 2,
+          gap: 2
+        }}>
+          <Box sx={{
+            width: 16,
+            height: 16,
+            border: '2px solid #f3f3f3',
+            borderTop: '2px solid #1890ff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            '@keyframes spin': {
+              '0%': { transform: 'rotate(0deg)' },
+              '100%': { transform: 'rotate(360deg)' }
+            }
+          }} />
+          <Typography sx={{ 
+            fontSize: '14px', 
+            color: '#666',
+            fontStyle: 'italic'
+          }}>
+            {submissionProgress}
+          </Typography>
+        </Box>
+      )}
 
       {/* Main Content Area */}
       <Box sx={{ 

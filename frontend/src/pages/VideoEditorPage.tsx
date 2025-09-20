@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import VideoUpload from '../components/VideoEditor/VideoUpload';
 import GhostCutVideoEditor from '../components/VideoEditor/GhostCutVideoEditor';
 
-const steps = ['Upload Video', 'Edit & Annotate', 'Submit to GhostCut'];
+const steps = ['Upload Video', 'Edit & Annotate', 'Process with AI'];
 
 // Custom styled stepper connector
 const ColorlibConnector = styled(StepConnector)(({ theme }) => ({
@@ -137,7 +137,7 @@ const VideoEditorPage: React.FC = () => {
                   fontSize: { xs: '1rem', md: '1.25rem' },
                   fontWeight: 300
                 }}>
-                  Upload a video, draw regions for text removal or protection, and submit to GhostCut API.
+                  Upload a video, draw regions for text removal or protection, and process with our AI service.
                 </Typography>
               </Box>
             </Container>

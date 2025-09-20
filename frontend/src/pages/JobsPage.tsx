@@ -138,6 +138,53 @@ const JobsPage: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatDateInChicagoTime = (dateString: string) => {
+    // Debug logging
+    console.log('Original timestamp from backend:', dateString);
+    
+    // Parse the date string - if it doesn't have timezone info, treat it as UTC
+    let date: Date;
+    
+    // Backend sends timestamps without 'Z', so we need to treat them as UTC
+    if (!dateString.includes('Z') && !dateString.includes('+') && !dateString.match(/[-+]\d{2}:\d{2}$/)) {
+      // Add 'Z' to indicate UTC if not present
+      date = new Date(dateString + 'Z');
+      console.log('Added Z for UTC, parsed as:', date.toISOString());
+    } else {
+      date = new Date(dateString);
+    }
+    
+    // Format in Chicago Central Time (America/Chicago timezone)
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    };
+    
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(date);
+    
+    // Extract date and time parts
+    const year = parts.find(p => p.type === 'year')?.value || '';
+    const month = parts.find(p => p.type === 'month')?.value || '';
+    const day = parts.find(p => p.type === 'day')?.value || '';
+    const hour = parts.find(p => p.type === 'hour')?.value || '';
+    const minute = parts.find(p => p.type === 'minute')?.value || '';
+    const second = parts.find(p => p.type === 'second')?.value || '';
+    
+    const dateStr = `${month}/${day}/${year}`;
+    const timeStr = `${hour}:${minute}:${second}`;
+    
+    console.log('Converted to Chicago time:', dateStr, timeStr);
+    
+    return { date: dateStr, time: timeStr };
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'between', mb: 4 }}>
@@ -302,12 +349,19 @@ const JobsPage: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {new Date(job.created_at).toLocaleDateString()}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(job.created_at).toLocaleTimeString()}
-                      </Typography>
+                      {(() => {
+                        const { date, time } = formatDateInChicagoTime(job.created_at);
+                        return (
+                          <>
+                            <Typography variant="body2">
+                              {date}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {time}
+                            </Typography>
+                          </>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">

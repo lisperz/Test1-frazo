@@ -3,6 +3,7 @@ Configuration management for video text inpainting service
 """
 
 import os
+import pytz
 from typing import Optional, List
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -89,12 +90,27 @@ class Settings(BaseSettings):
     log_level: str = config("LOG_LEVEL", default="INFO")
     enable_metrics: bool = config("ENABLE_METRICS", default=True, cast=bool)
     
+    # Timezone
+    timezone: str = config("TZ", default="America/Chicago")
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
 
 # Global settings instance
 settings = Settings()
+
+# Timezone utility
+def get_local_timezone():
+    """Get the configured timezone object"""
+    return pytz.timezone(settings.timezone)
+
+def get_local_time():
+    """Get current time in the configured timezone"""
+    import datetime
+    utc_now = datetime.datetime.now(datetime.timezone.utc)
+    local_tz = get_local_timezone()
+    return utc_now.astimezone(local_tz)
 
 # Validate critical settings
 def validate_settings():
