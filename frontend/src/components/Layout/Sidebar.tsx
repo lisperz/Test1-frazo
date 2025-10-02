@@ -12,6 +12,7 @@ import {
   IconButton,
   useTheme,
   alpha,
+  Chip,
 } from '@mui/material';
 import {
   Translate,
@@ -23,6 +24,7 @@ import {
   ExpandMore,
   AccountCircle,
   VideoSettings,
+  Star,
 } from '@mui/icons-material';
 import ThemeToggle from '../Common/ThemeToggle';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -40,6 +42,8 @@ interface MenuItem {
   icon: React.ReactNode;
   path: string;
   section: string;
+  badge?: string;
+  requiresPro?: boolean;
 }
 
 const DRAWER_WIDTH = 280;
@@ -64,6 +68,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       icon: <VideoSettings />,
       path: '/editor',
       section: 'Translate',
+    },
+    {
+      id: 'pro-editor',
+      label: 'Pro Video Editor',
+      icon: <Star />,
+      path: '/editor/pro',
+      section: 'Translate',
+      badge: 'PRO',
+      requiresPro: true,
     },
     {
       id: 'history',
@@ -211,16 +224,36 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
                             },
                           }}
                         >
-                          <ListItemIcon 
-                            sx={{ 
-                              minWidth: 36, 
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 36,
                               color: isActive ? 'primary.main' : 'text.secondary',
                             }}
                           >
                             {item.icon}
                           </ListItemIcon>
                           <ListItemText
-                            primary={item.label}
+                            primary={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <span>{item.label}</span>
+                                {item.badge && (
+                                  <Chip
+                                    label={item.badge}
+                                    size="small"
+                                    sx={{
+                                      height: 18,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                      color: 'white',
+                                      '& .MuiChip-label': {
+                                        px: 0.75,
+                                      },
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            }
                             primaryTypographyProps={{
                               fontSize: 14,
                               fontWeight: isActive ? 600 : 400,

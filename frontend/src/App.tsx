@@ -28,6 +28,7 @@ import VideoInpaintingPage from './pages/VideoInpaintingPage';
 import SimpleVideoInpaintingPage from './pages/SimpleVideoInpaintingPage';
 import TranslateNewPage from './pages/TranslateNewPage';
 import VideoEditorPage from './pages/VideoEditorPage';
+import ProVideoEditorPage from './pages/ProVideoEditorPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,7 +70,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   
   // For simple video inpainting page and video editor, render without layout for full-screen experience
-  const fullScreenRoutes = ['/simple', '/editor'];
+  const fullScreenRoutes = ['/simple', '/editor', '/editor/pro'];
   console.log('[Layout] Current pathname:', location.pathname);
   console.log('[Layout] Should use full-screen:', fullScreenRoutes.includes(location.pathname));
   
@@ -217,13 +218,23 @@ const App: React.FC = () => {
         />
         
         {/* Video Editor Route - Protected */}
-        <Route 
-          path="/editor" 
+        <Route
+          path="/editor"
           element={
             <ProtectedRoute>
               <VideoEditorPage />
             </ProtectedRoute>
-          } 
+          }
+        />
+
+        {/* Pro Video Editor Route - Protected */}
+        <Route
+          path="/editor/pro"
+          element={
+            <ProtectedRoute>
+              <ProVideoEditorPage />
+            </ProtectedRoute>
+          }
         />
         
         {/* Translation Routes */}
