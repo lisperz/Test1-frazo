@@ -15,11 +15,15 @@ import {
   Alert,
   IconButton,
   Paper,
+  Checkbox,
+  FormControlLabel,
+  Collapse,
 } from '@mui/material';
 import {
   Close,
   CloudUpload,
   CheckCircle,
+  ContentCut,
 } from '@mui/icons-material';
 import {
   useSegmentsStore,
@@ -58,6 +62,11 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
   const [label, setLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // Audio crop state (optional)
+  const [enableAudioCrop, setEnableAudioCrop] = useState(false);
+  const [audioStartTime, setAudioStartTime] = useState<number | null>(null);
+  const [audioEndTime, setAudioEndTime] = useState<number | null>(null);
+
   // Initialize form when dialog opens
   useEffect(() => {
     if (open) {
@@ -70,6 +79,13 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
           setLabel(segment.label || '');
           // Note: Can't load the actual File object, so show filename only
           setAudioFile(segment.audioInput.file);
+
+          // Load audio crop settings if they exist
+          const hasAudioCrop = segment.audioInput.startTime !== null || segment.audioInput.startTime !== undefined ||
+                               segment.audioInput.endTime !== null || segment.audioInput.endTime !== undefined;
+          setEnableAudioCrop(hasAudioCrop);
+          setAudioStartTime(segment.audioInput.startTime ?? null);
+          setAudioEndTime(segment.audioInput.endTime ?? null);
         }
       } else {
         // Add mode - use current time as start
@@ -79,6 +95,9 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         setEndTime(suggestedEnd);
         setLabel('');
         setAudioFile(null);
+        setEnableAudioCrop(false);
+        setAudioStartTime(null);
+        setAudioEndTime(null);
       }
       setError(null);
     }
@@ -111,6 +130,18 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       return;
     }
 
+    // Validate audio crop times if enabled
+    if (enableAudioCrop) {
+      if (audioStartTime !== null && audioEndTime !== null && audioStartTime >= audioEndTime) {
+        setError('Audio start time must be before end time');
+        return;
+      }
+      if (audioStartTime !== null && audioStartTime < 0) {
+        setError('Audio start time cannot be negative');
+        return;
+      }
+    }
+
     if (editingSegmentId) {
       // Update existing segment
       const updates: any = {
@@ -124,6 +155,8 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
           file: audioFile,
           fileName: audioFile.name,
           fileSize: audioFile.size,
+          startTime: enableAudioCrop ? audioStartTime ?? undefined : undefined,
+          endTime: enableAudioCrop ? audioEndTime ?? undefined : undefined,
         };
         updates.audioInput = audioInput;
       }
@@ -135,6 +168,8 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         file: audioFile!,
         fileName: audioFile!.name,
         fileSize: audioFile!.size,
+        startTime: enableAudioCrop ? audioStartTime ?? undefined : undefined,
+        endTime: enableAudioCrop ? audioEndTime ?? undefined : undefined,
       };
 
       const newSegment = createNewSegment(startTime, endTime, audioInput, label);
@@ -247,6 +282,77 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
               </Box>
             )}
           </Paper>
+
+          {/* Audio Crop Section (Optional) */}
+          {audioFile && (
+            <Box sx={{ mt: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={enableAudioCrop}
+                    onChange={(e) => {
+                      setEnableAudioCrop(e.target.checked);
+                      if (!e.target.checked) {
+                        setAudioStartTime(null);
+                        setAudioEndTime(null);
+                      }
+                    }}
+                    sx={{
+                      color: '#f59e0b',
+                      '&.Mui-checked': {
+                        color: '#f59e0b',
+                      },
+                    }}
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <ContentCut sx={{ fontSize: 18, color: '#f59e0b' }} />
+                    <Typography variant="body2">
+                      Crop Audio (Optional)
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <Collapse in={enableAudioCrop}>
+                <Box sx={{ mt: 1.5, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                    Specify which part of the audio file to use for lip-sync
+                  </Typography>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <TextField
+                      label="Audio Start (seconds)"
+                      type="number"
+                      value={audioStartTime ?? ''}
+                      onChange={(e) => setAudioStartTime(e.target.value ? parseFloat(e.target.value) : null)}
+                      inputProps={{ min: 0, step: 0.1 }}
+                      size="small"
+                      fullWidth
+                      placeholder="e.g., 2.5"
+                    />
+                    <TextField
+                      label="Audio End (seconds)"
+                      type="number"
+                      value={audioEndTime ?? ''}
+                      onChange={(e) => setAudioEndTime(e.target.value ? parseFloat(e.target.value) : null)}
+                      inputProps={{ min: 0, step: 0.1 }}
+                      size="small"
+                      fullWidth
+                      placeholder="e.g., 12.5"
+                    />
+                  </Box>
+
+                  {audioStartTime !== null && audioEndTime !== null && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      Audio duration: {formatSegmentTime(audioEndTime - audioStartTime)}
+                    </Typography>
+                  )}
+                </Box>
+              </Collapse>
+            </Box>
+          )}
         </Box>
 
         {/* Optional Label */}

@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     ghostcut_uid: str = config("GHOSTCUT_UID", default="")
     ghostcut_api_key: str = config("GHOSTCUT_API_KEY", default="")
     ghostcut_api_url: str = config("GHOSTCUT_API_URL", default="https://api.ghostcut.com")
+
+    # Sync.so API settings (for Pro Video Editor segment-based lip-sync)
+    sync_api_key: str = config("SYNC_API_KEY", default="")
+    sync_api_url: str = config("SYNC_API_URL", default="https://api.sync.so")
     
     # File upload settings
     max_upload_size_mb: int = config("MAX_UPLOAD_SIZE_MB", default=1000, cast=int)
@@ -131,6 +135,8 @@ def validate_settings():
             errors.append("GHOSTCUT_APP_SECRET is required in production")
         if not settings.ghostcut_uid:
             errors.append("GHOSTCUT_UID is required in production")
+        if not settings.sync_api_key:
+            errors.append("SYNC_API_KEY is required in production")
         if not settings.aws_access_key_id:
             errors.append("AWS_ACCESS_KEY_ID is required in production")
         if not settings.aws_secret_access_key:

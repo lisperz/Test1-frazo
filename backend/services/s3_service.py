@@ -184,7 +184,7 @@ class S3Service:
     def test_connection(self) -> bool:
         """
         Test S3 connection and permissions.
-        
+
         Returns:
             True if connection successful, False otherwise
         """
@@ -202,6 +202,61 @@ class S3Service:
         except Exception as e:
             logger.error(f"Unexpected error during S3 connection test: {e}")
             return False
+
+    def upload_multiple_audio_files(
+        self,
+        audio_file_paths: list,
+        user_id: str,
+        job_id: str
+    ) -> dict:
+        """
+        Upload multiple audio files to S3 for Pro Video Editor segments
+
+        Args:
+            audio_file_paths: List of local audio file paths
+            user_id: User ID for S3 path organization
+            job_id: Job ID for S3 path organization
+
+        Returns:
+            Dict mapping refId -> S3 URL for each audio file
+            Example: {"audio-uuid-1": "https://...", "audio-uuid-2": "https://..."}
+        """
+        import uuid
+
+        url_mapping = {}
+
+        try:
+            for audio_file_path in audio_file_paths:
+                if not os.path.exists(audio_file_path):
+                    logger.warning(f"Audio file not found: {audio_file_path}")
+                    continue
+
+                # Generate unique refId for this audio file
+                ref_id = f"audio-{uuid.uuid4()}"
+
+                # Get file extension
+                file_ext = os.path.splitext(audio_file_path)[1]
+
+                # Create S3 key path
+                s3_key = f"users/{user_id}/jobs/{job_id}/audio/{ref_id}{file_ext}"
+
+                logger.info(f"Uploading audio file to S3: {s3_key}")
+
+                # Upload to S3
+                audio_url = self.upload_video_and_get_url(audio_file_path, s3_key)
+
+                if audio_url:
+                    url_mapping[ref_id] = audio_url
+                    logger.info(f"Audio uploaded successfully: {ref_id} -> {audio_url}")
+                else:
+                    logger.error(f"Failed to upload audio file: {audio_file_path}")
+
+            logger.info(f"Uploaded {len(url_mapping)} audio files to S3")
+            return url_mapping
+
+        except Exception as e:
+            logger.error(f"Error uploading multiple audio files: {e}")
+            raise
 
 # Global S3 service instance
 s3_service = S3Service()
