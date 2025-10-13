@@ -39,6 +39,10 @@ class VideoJob(Base):
     zhaoli_task_id = Column(String(255))
     estimated_credits = Column(Integer)
     actual_credits_used = Column(Integer)
+
+    # Pro Video Editor Support
+    is_pro_job = Column(Boolean, default=False)  # True for Pro editor jobs
+    segments_data = Column(JSONB, default=None)  # Segment configurations for Pro jobs
     
     # File information
     input_file_size_mb = Column(DECIMAL(8, 2))

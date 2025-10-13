@@ -15,7 +15,7 @@ from backend.config import settings, validate_settings
 from backend.models.database import init_database
 from backend.api.routes import auth, users, jobs, files, admin, ghostcut
 from backend.api.routes import upload_and_process, direct_process
-from backend.api.routes import sync_api
+from backend.api.routes import sync_api, pro_sync_api
 from backend.api.websocket import websocket_router
 
 # Configure logging with timezone
@@ -219,6 +219,12 @@ app.include_router(
     sync_api.router,
     prefix="/api/v1/sync",
     tags=["Sync API Lip-Sync Processing"]
+)
+
+app.include_router(
+    pro_sync_api.router,
+    prefix="/api/v1/sync",
+    tags=["Pro Video Editor - Segment-Based Lip-Sync"]
 )
 
 # Include WebSocket router

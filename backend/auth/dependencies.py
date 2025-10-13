@@ -253,3 +253,42 @@ async def validate_user_limits(
 
 # Import datetime for API key usage tracking
 from datetime import datetime
+
+
+async def require_pro_tier(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Require Pro or Enterprise subscription tier for Pro Video Editor features
+    """
+    tier_hierarchy = {"free": 1, "pro": 2, "enterprise": 3}
+
+    # Get user tier level
+    user_tier_name = current_user.subscription_tier.name if current_user.subscription_tier else "free"
+    user_tier_level = tier_hierarchy.get(user_tier_name, 1)
+
+    # Pro requires level 2 or higher
+    if user_tier_level < 2:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Pro Video Editor requires Pro or Enterprise subscription. Please upgrade your account."
+        )
+
+    return current_user
+
+
+def get_max_segments_for_user(user: User) -> int:
+    """
+    Get maximum number of segments allowed for user's subscription tier
+
+    Returns:
+        5 for Pro tier, 10 for Enterprise tier
+    """
+    tier_name = user.subscription_tier.name if user.subscription_tier else "free"
+
+    if tier_name == "enterprise":
+        return 10
+    elif tier_name == "pro":
+        return 5
+    else:
+        return 0  # Free tier cannot use segments
