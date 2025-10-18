@@ -47,7 +47,13 @@ class JobResponse(BaseModel):
     completed_at: Optional[datetime]
     error_message: Optional[str]
     created_at: datetime
-    
+    is_pro_job: Optional[bool] = False
+    segments_data: Optional[dict] = None
+    file_size: Optional[int] = None
+    duration: Optional[int] = None
+    credits_used: Optional[int] = None
+    progress: Optional[int] = None
+
     class Config:
         from_attributes = True
 
@@ -389,7 +395,13 @@ async def get_user_jobs(
             started_at=job.started_at,
             completed_at=job.completed_at,
             error_message=error_message,
-            created_at=job.created_at
+            created_at=job.created_at,
+            is_pro_job=getattr(job, 'is_pro_job', False),
+            segments_data=getattr(job, 'segments_data', None),
+            file_size=getattr(job, 'input_file_size_mb', None),
+            duration=job.video_duration_seconds,
+            credits_used=job.actual_credits_used,
+            progress=job.progress_percentage
         ))
     
     return JobListResponse(

@@ -55,12 +55,17 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
   videoUrl: null,
 
   // Add a new segment with automatic sorting
-  addSegment: (segment) => set((state) => {
-    const newSegments = [...state.segments, segment].sort(
-      (a, b) => a.startTime - b.startTime
-    );
-    return { segments: newSegments };
-  }),
+  addSegment: (segment) => {
+    console.log('🔥 STORE: addSegment called with:', segment);
+    set((state) => {
+      const newSegments = [...state.segments, segment].sort(
+        (a, b) => a.startTime - b.startTime
+      );
+      console.log('🔥 STORE: New segments array:', newSegments);
+      console.log('🔥 STORE: Total segments count:', newSegments.length);
+      return { segments: newSegments };
+    });
+  },
 
   // Update an existing segment
   updateSegment: (id, updates) => set((state) => ({

@@ -308,11 +308,32 @@ const JobsPage: React.FC = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <VideoLibrary sx={{ mr: 2, color: 'grey.400' }} />
                         <Box>
-                          <Typography variant="subtitle2" noWrap sx={{ maxWidth: 200 }}>
-                            {job.display_name || job.original_filename}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="subtitle2" noWrap sx={{ maxWidth: 200 }}>
+                              {job.display_name || job.original_filename}
+                            </Typography>
+                            {job.is_pro_job && (
+                              <Chip
+                                label="PRO"
+                                size="small"
+                                sx={{
+                                  height: 18,
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                  color: 'white',
+                                  '& .MuiChip-label': {
+                                    px: 1
+                                  }
+                                }}
+                              />
+                            )}
+                          </Box>
                           <Typography variant="body2" color="text.secondary">
                             {formatFileSize(job.file_size || 0)}
+                            {job.is_pro_job && job.segments_data?.total_segments && (
+                              <> • {job.segments_data.total_segments} segment{job.segments_data.total_segments > 1 ? 's' : ''}</>
+                            )}
                           </Typography>
                         </Box>
                       </Box>

@@ -110,7 +110,10 @@ class SyncSegmentsService:
             payload = {
                 "model": "lipsync-2",  # Recommended model from Sync.so docs
                 "input": input_array,
-                "segments": segments_array
+                "segments": segments_array,
+                "options": {
+                    "sync_mode": "remap"  # Default for segments: adjust playback speed to match audio/video duration
+                }
             }
 
             logger.info(f"Creating segmented lip-sync with {len(segments)} segments")
@@ -123,7 +126,7 @@ class SyncSegmentsService:
 
             async with aiohttp.ClientSession() as session:
                 headers = {
-                    "Authorization": f"Bearer {self.api_key}",
+                    "x-api-key": self.api_key,
                     "Content-Type": "application/json"
                 }
 
@@ -175,7 +178,7 @@ class SyncSegmentsService:
 
             async with aiohttp.ClientSession() as session:
                 headers = {
-                    "Authorization": f"Bearer {self.api_key}",
+                    "x-api-key": self.api_key,
                     "Content-Type": "application/json"
                 }
 

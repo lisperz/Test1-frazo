@@ -107,6 +107,16 @@ export interface VideoJob {
   completed_at?: string;
   error_message?: string;
   created_at: string;
+  is_pro_job?: boolean;
+  segments_data?: {
+    segments?: any[];
+    total_segments?: number;
+  };
+  output_url?: string;
+  file_size?: number;
+  duration?: number;
+  credits_used?: number;
+  progress?: number;
 }
 
 export interface JobListResponse {

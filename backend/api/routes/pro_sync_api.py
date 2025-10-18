@@ -198,14 +198,33 @@ async def pro_sync_process_video(
         video_path = os.path.join(temp_dir, f"video_{job_id}_{file.filename}")
         await save_uploaded_file(file, video_path)
 
-        # Save all audio files temporarily
+        # Save all audio files temporarily with refId mapping
+        # Extract unique refIds from segments in order they appear
+        ref_ids_in_order = []
+        seen_ref_ids = set()
+        for segment in segments:
+            ref_id = segment.get("audioInput", {}).get("refId")
+            if ref_id and ref_id not in seen_ref_ids:
+                ref_ids_in_order.append(ref_id)
+                seen_ref_ids.add(ref_id)
+
+        # Validate that we have the right number of audio files
+        if len(audio_files) != len(ref_ids_in_order):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Audio file count ({len(audio_files)}) does not match unique refIds count ({len(ref_ids_in_order)})"
+            )
+
         audio_paths = []
+        audio_refid_map = {}  # Map audio file path to its refId
         for i, audio_file in enumerate(audio_files):
             audio_path = os.path.join(temp_dir, f"audio_{i}_{audio_file.filename}")
             await save_uploaded_file(audio_file, audio_path)
             audio_paths.append(audio_path)
+            # Map this audio file path to its corresponding refId
+            audio_refid_map[audio_path] = ref_ids_in_order[i]
 
-        logger.info(f"Saved {len(audio_paths)} audio files temporarily")
+        logger.info(f"Saved {len(audio_paths)} audio files with refId mapping: {audio_refid_map}")
 
         # Upload video to S3
         video_s3_key = f"users/{current_user.id}/jobs/{job_id}/video_{file.filename}"
@@ -217,9 +236,9 @@ async def pro_sync_process_video(
                 detail="Failed to upload video to S3"
             )
 
-        # Upload all audio files to S3 and create refId mapping
-        audio_url_mapping = s3_service.upload_multiple_audio_files(
-            audio_paths,
+        # Upload all audio files to S3 with their refIds preserved
+        audio_url_mapping = s3_service.upload_multiple_audio_files_with_refids(
+            audio_refid_map,
             str(current_user.id),
             str(job_id)
         )
@@ -244,6 +263,7 @@ async def pro_sync_process_video(
 
             # Update job with Sync.so generation ID and status
             job.status = JobStatus.PROCESSING.value
+            job.zhaoli_task_id = sync_generation_id  # Save generation ID for polling
             job.job_metadata = {
                 "video_s3_url": video_url,
                 "audio_url_mapping": audio_url_mapping,

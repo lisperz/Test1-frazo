@@ -13,6 +13,10 @@ app.conf.beat_schedule = {
         'task': 'backend.workers.ghostcut_tasks.check_ghostcut_completion',
         'schedule': 120.0,  # Run every 2 minutes
     },
+    'check-pro-job-completion': {
+        'task': 'backend.workers.video_tasks.check_pro_job_completion',
+        'schedule': 60.0,  # Run every 1 minute
+    },
 }
 
 # Ensure timezone awareness

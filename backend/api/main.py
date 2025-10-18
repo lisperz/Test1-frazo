@@ -15,7 +15,15 @@ from backend.config import settings, validate_settings
 from backend.models.database import init_database
 from backend.api.routes import auth, users, jobs, files, admin, ghostcut
 from backend.api.routes import upload_and_process, direct_process
-from backend.api.routes import sync_api, pro_sync_api
+from backend.api.routes import sync_api
+# Pro sync API will be registered after all dependencies are loaded
+try:
+    from backend.api.routes import pro_sync_api as pro_sync_module
+    pro_sync_api = pro_sync_module
+except ImportError as e:
+    import logging
+    logging.warning(f"Pro Sync API not available: {e}")
+    pro_sync_api = None
 from backend.api.websocket import websocket_router
 
 # Configure logging with timezone
@@ -221,11 +229,16 @@ app.include_router(
     tags=["Sync API Lip-Sync Processing"]
 )
 
-app.include_router(
-    pro_sync_api.router,
-    prefix="/api/v1/sync",
-    tags=["Pro Video Editor - Segment-Based Lip-Sync"]
-)
+# Register Pro Sync API if available
+if pro_sync_api is not None:
+    app.include_router(
+        pro_sync_api.router,
+        prefix="/api/v1/sync",
+        tags=["Pro Video Editor - Segment-Based Lip-Sync"]
+    )
+    logger.info("Pro Sync API routes registered successfully")
+else:
+    logger.warning("Pro Sync API not available - skipping route registration")
 
 # Include WebSocket router
 app.include_router(websocket_router)

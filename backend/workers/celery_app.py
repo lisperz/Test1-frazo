@@ -83,6 +83,10 @@ app.conf.update(
         'check-ghostcut-completion': {
             'task': 'backend.workers.ghostcut_tasks.check_ghostcut_completion',
             'schedule': 120.0,  # Check every 2 minutes for completed jobs
+        },
+        'check-pro-job-completion': {
+            'task': 'backend.workers.video_tasks.check_pro_job_completion',
+            'schedule': 60.0,  # Check every minute for Pro job completion
         }
     }
 )

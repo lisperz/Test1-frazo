@@ -258,5 +258,56 @@ class S3Service:
             logger.error(f"Error uploading multiple audio files: {e}")
             raise
 
+    def upload_multiple_audio_files_with_refids(
+        self,
+        audio_refid_map: dict,
+        user_id: str,
+        job_id: str
+    ) -> dict:
+        """
+        Upload multiple audio files to S3 with preserved refIds from frontend
+
+        Args:
+            audio_refid_map: Dict mapping audio file path -> refId
+                Example: {"/tmp/audio_0.mp3": "audio-1760661529869-tdshi62pu"}
+            user_id: User ID for S3 path organization
+            job_id: Job ID for S3 path organization
+
+        Returns:
+            Dict mapping refId -> S3 URL for each audio file
+            Example: {"audio-1760661529869-tdshi62pu": "https://..."}
+        """
+        url_mapping = {}
+
+        try:
+            for audio_file_path, ref_id in audio_refid_map.items():
+                if not os.path.exists(audio_file_path):
+                    logger.warning(f"Audio file not found: {audio_file_path}")
+                    continue
+
+                # Get file extension
+                file_ext = os.path.splitext(audio_file_path)[1]
+
+                # Create S3 key path using the provided refId
+                s3_key = f"users/{user_id}/jobs/{job_id}/audio/{ref_id}{file_ext}"
+
+                logger.info(f"Uploading audio file to S3 with refId {ref_id}: {s3_key}")
+
+                # Upload to S3
+                audio_url = self.upload_video_and_get_url(audio_file_path, s3_key)
+
+                if audio_url:
+                    url_mapping[ref_id] = audio_url
+                    logger.info(f"Audio uploaded successfully: {ref_id} -> {audio_url}")
+                else:
+                    logger.error(f"Failed to upload audio file: {audio_file_path}")
+
+            logger.info(f"Uploaded {len(url_mapping)} audio files to S3 with preserved refIds")
+            return url_mapping
+
+        except Exception as e:
+            logger.error(f"Error uploading multiple audio files with refIds: {e}")
+            raise
+
 # Global S3 service instance
 s3_service = S3Service()

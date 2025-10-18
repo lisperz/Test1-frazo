@@ -87,7 +87,11 @@ services:
       
       # CORS
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:80}
-      
+
+      # Sync.so API (Pro Video Editor)
+      SYNC_API_KEY: ${SYNC_API_KEY}
+      SYNC_API_URL: ${SYNC_API_URL:-https://api.sync.so}
+
       # Timezone
       TZ: America/Chicago
     volumes:

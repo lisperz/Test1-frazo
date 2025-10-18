@@ -76,7 +76,6 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionProgress, setSubmissionProgress] = useState('');
-  const [audioFile, setAudioFile] = useState<File | null>(null);
 
   // Segment dialog state
   const [isSegmentDialogOpen, setIsSegmentDialogOpen] = useState(false);
@@ -105,10 +104,12 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     canRedo,
   } = useEffectsStore();
 
-  // Debug log for audio file state
+  // Debug log for segments state
   useEffect(() => {
-    console.log('AudioFile state updated:', audioFile);
-  }, [audioFile]);
+    console.log('=== SEGMENTS STATE CHANGED ===');
+    console.log('Total segments:', segments.length);
+    console.log('Segments:', segments);
+  }, [segments]);
 
   // Synchronize timeline effects with main effects store AND segments
   useEffect(() => {
@@ -182,11 +183,14 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
 
   // Segment dialog handlers
   const handleAddSegment = () => {
+    console.log('=== ADD SEGMENT BUTTON CLICKED ===');
+    console.log('Opening segment dialog');
     setEditingSegmentId(null);
     setIsSegmentDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
+    console.log('=== CLOSING SEGMENT DIALOG ===');
     setIsSegmentDialogOpen(false);
     setEditingSegmentId(null);
   };
@@ -571,136 +575,130 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
           <ArrowBack />
         </IconButton>
         <Typography sx={{ fontSize: '14px', color: '#666' }}>
-          Video Erasure
+          Pro Video Editor - Multi-Segment Lip Sync
         </Typography>
 
-        {/* Audio Upload Box */}
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          mx: 2,
-          p: 1,
-          bgcolor: '#f8f9fa',
-          borderRadius: 1,
-          border: '1px solid #e0e0e0'
-        }}>
-          <Typography sx={{ fontSize: '12px', color: '#666', mr: 1 }}>
-            Lip Sync:
-          </Typography>
-          <input
-            type="file"
-            accept="audio/*"
-            id="audio-upload"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              console.log('Audio input changed, files:', e.target.files);
-              const file = e.target.files?.[0];
-              if (file) {
-                console.log('Audio file selected:', file.name, 'Type:', file.type, 'Size:', file.size);
-                setAudioFile(file);
-              } else {
-                console.log('No audio file selected');
-              }
-            }}
-          />
-          <label htmlFor="audio-upload">
-            <Button
-              component="span"
-              variant="outlined"
-              size="small"
-              sx={{
-                fontSize: '11px',
-                textTransform: 'none',
-                minWidth: '80px',
-                height: '28px',
-                borderColor: audioFile ? '#52c41a' : '#d9d9d9',
-                color: audioFile ? '#52c41a' : '#666',
-                bgcolor: audioFile ? '#f6ffed' : 'white'
-              }}
-            >
-              {audioFile ? 'Audio Ready' : 'Upload Audio'}
-            </Button>
-          </label>
-          {audioFile && (
-            <Typography sx={{ fontSize: '10px', color: '#52c41a', ml: 1 }}>
-              {audioFile.name.slice(0, 15)}...
-            </Typography>
-          )}
-        </Box>
-
         <Box sx={{ flex: 1 }} />
+
+        {/* Show segment count indicator */}
+        {segments.length > 0 && (
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            px: 2,
+            py: 0.5,
+            bgcolor: '#f0f9ff',
+            borderRadius: 1,
+            border: '1px solid #bae6fd'
+          }}>
+            <Typography sx={{ fontSize: '12px', color: '#0284c7', fontWeight: 600 }}>
+              {segments.length} segment{segments.length > 1 ? 's' : ''} configured
+            </Typography>
+          </Box>
+        )}
         <Typography sx={{ fontSize: '13px', color: '#999' }}>
           Pro Version
         </Typography>
         <Button
           variant="contained"
           size="small"
-          disabled={isSubmitting}
+          disabled={isSubmitting || segments.length === 0}
           onClick={async () => {
+            console.log('=== PRO VIDEO SUBMIT HANDLER ===');
+            console.log('Segments count:', segments.length);
+            console.log('Segments data:', segments);
+            console.log('Effects count:', effects.length);
+            console.log('Video file:', videoFile);
+
             if (!videoFile) {
               console.error('No video file available for submission');
+              alert('Please upload a video file');
+              return;
+            }
+
+            if (segments.length === 0) {
+              console.error('No segments configured - segments array is empty!');
+              alert('Please add at least one segment for Pro video processing');
               return;
             }
 
             setIsSubmitting(true);
-            setSubmissionProgress('Preparing video for processing...');
+            setSubmissionProgress('Preparing Pro video for processing...');
 
             try {
-              console.log('Submitting video for AI processing...');
-              
+              console.log('Submitting Pro video with', segments.length, 'segments');
+
               const formData = new FormData();
               formData.append('file', videoFile);
-              formData.append('display_name', `Video Processing - ${videoFile.name}`);
+              formData.append('display_name', `Pro Video - ${videoFile.name}`);
 
-              // Include audio file for lip sync if uploaded
-              if (audioFile) {
-                formData.append('audio', audioFile);
-                console.log('Including audio file for lip sync:', audioFile.name);
-              }
+              // Add all audio files from segments
+              const audioFiles = segments.map(seg => seg.audioInput.file).filter(Boolean);
+              audioFiles.forEach((file, index) => {
+                formData.append('audio_files', file as File);
+              });
 
-              // Send region/effect data for targeted text removal
+              console.log('Including', audioFiles.length, 'audio files for segments');
+              console.log('RAW SEGMENTS FROM STORE:', JSON.stringify(segments, null, 2));
+
+              // Build segments data for API
+              const segmentsData = segments.map(seg => {
+                // Per Sync.so docs: audioInput times are OPTIONAL
+                // Only include when user explicitly enables audio cropping
+                // Omitting allows default "remap" sync_mode to handle duration mismatch
+                const audioInput: any = {
+                  refId: seg.audioInput.refId
+                };
+
+                // Only include audio crop times if both are explicitly set by user
+                if (seg.audioInput.startTime !== null && seg.audioInput.startTime !== undefined &&
+                    seg.audioInput.endTime !== null && seg.audioInput.endTime !== undefined) {
+                  audioInput.startTime = seg.audioInput.startTime;
+                  audioInput.endTime = seg.audioInput.endTime;
+                }
+
+                return {
+                  startTime: seg.startTime,
+                  endTime: seg.endTime,
+                  audioInput
+                };
+              });
+
+              formData.append('segments_data', JSON.stringify(segmentsData));
+              console.log('Segments configuration:', JSON.stringify(segmentsData, null, 2));
+
+              // Include effects data if any
               if (effects.length > 0) {
                 const effectsData = effects.map(effect => ({
-                  type: effect.type, // 'erasure', 'protection', 'text'
-                  startTime: effect.startTime, // ✅ Send actual time in seconds (not percentage)
-                  endTime: effect.endTime,     // ✅ Send actual time in seconds (not percentage)
-                  region: effect.region        // {x, y, width, height} normalized coordinates
+                  type: effect.type,
+                  startTime: effect.startTime,
+                  endTime: effect.endTime,
+                  region: effect.region
                 }));
-                console.log('Sending effects data to backend:', effectsData);
                 formData.append('effects', JSON.stringify(effectsData));
+                console.log('Including', effects.length, 'effects');
               }
 
-              // Choose API endpoint based on whether audio is provided
-              const apiEndpoint = audioFile
-                ? '/api/v1/sync/sync-process'  // Use sync workflow for lip-sync + text removal
-                : '/api/v1/direct/direct-process';  // Use direct workflow for text removal only
+              setSubmissionProgress('Uploading video and audio files for Pro processing...');
 
-              const progressMessage = audioFile
-                ? 'Uploading video and audio files for lip-sync processing...'
-                : 'Uploading video and annotation data...';
-
-              setSubmissionProgress(progressMessage);
-
-              // Get auth token for API request
+              // Get auth token
               const token = localStorage.getItem('access_token');
-              console.log('Token from localStorage:', token ? `Bearer ${token.substring(0, 20)}...` : 'NO TOKEN');
-
-              const headers: Record<string, string> = {};
-              if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-                console.log('Authorization header set:', headers['Authorization'].substring(0, 30) + '...');
-              } else {
-                console.error('No authentication token found! User needs to be logged in.');
+              if (!token) {
+                console.error('No authentication token found');
                 setIsSubmitting(false);
                 setSubmissionProgress('');
                 alert('Not authenticated. Please refresh the page and try again.');
                 return;
               }
 
-              console.log('Sending request to:', apiEndpoint);
-              console.log('Request headers:', headers);
+              const headers: Record<string, string> = {
+                'Authorization': `Bearer ${token}`
+              };
 
-              const response = await fetch(apiEndpoint, {
+              console.log('Sending request to Pro API endpoint');
+
+              const response = await fetch('/api/v1/sync/pro-sync-process', {
                 method: 'POST',
                 headers,
                 body: formData
@@ -710,36 +708,26 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
               const result = await response.json();
 
               if (response.ok) {
-                console.log('Video submitted successfully:', result);
+                console.log('Pro video submitted successfully:', result);
+                setSubmissionProgress('Pro job created successfully! Redirecting to jobs page...');
 
-                const successMessage = audioFile
-                  ? 'Lip-sync and text removal job created successfully! Redirecting to jobs page...'
-                  : 'Video processing job created successfully! Redirecting to jobs page...';
-
-                setSubmissionProgress(successMessage);
-
-                // Wait a bit to ensure the job appears in the database before navigating
+                // Immediately navigate to jobs page
                 setTimeout(() => {
                   navigate('/jobs');
-                }, 2000);
+                }, 1500);
               } else {
                 console.error('Submission failed:', result);
-                console.error('Response status:', response.status);
-                console.error('Response details:', result);
                 setSubmissionProgress('');
                 setIsSubmitting(false);
 
-                // If 403, likely an auth issue
                 if (response.status === 403) {
-                  alert('Authentication failed. Please refresh the page to re-authenticate.');
-                  // Try to re-authenticate
-                  window.location.reload();
+                  alert('Insufficient permissions. Pro tier subscription required.');
                 } else {
                   alert(`Submission failed: ${result.detail || result.message || 'Unknown error'}`);
                 }
               }
             } catch (error) {
-              console.error('Error submitting video:', error);
+              console.error('Error submitting Pro video:', error);
               setSubmissionProgress('');
               setIsSubmitting(false);
               alert('Error submitting video. Please try again.');
@@ -752,10 +740,14 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
             textTransform: 'none',
             '&:hover': {
               bgcolor: '#40a9ff'
+            },
+            '&:disabled': {
+              bgcolor: '#d9d9d9',
+              color: '#999'
             }
           }}
         >
-          {isSubmitting ? 'Processing...' : 'Submit'}
+          {isSubmitting ? 'Processing...' : segments.length === 0 ? 'Add Segments' : 'Submit'}
         </Button>
       </Box>
       

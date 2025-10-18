@@ -598,3 +598,117 @@ def queue_video_processing_job(job_id: str):
     Queue a video processing job
     """
     return process_video.delay(job_id)
+
+
+@app.task
+def check_pro_job_completion():
+    """
+    Periodic task to check completion status of Pro video jobs (Sync.so)
+    """
+    db = get_db()
+    try:
+        # Find all Pro jobs that are processing and have a Sync.so generation ID
+        pro_jobs = db.query(VideoJob).filter(
+            VideoJob.status == JobStatus.PROCESSING.value,
+            VideoJob.is_pro_job == True,
+            VideoJob.zhaoli_task_id.isnot(None)
+        ).all()
+
+        if not pro_jobs:
+            logger.info("No Pro jobs to check")
+            return
+
+        logger.info(f"Checking {len(pro_jobs)} Pro jobs for completion")
+
+        from backend.services.sync_segments_service import sync_segments_service
+        from backend.services.s3_service import s3_service
+        import asyncio
+        import aiohttp
+
+        async def check_and_update_job(job):
+            try:
+                generation_id = job.zhaoli_task_id
+                logger.info(f"Checking Sync.so generation {generation_id} for job {job.id}")
+
+                # Check status with Sync.so
+                status_result = await sync_segments_service.check_generation_status(generation_id)
+
+                status = status_result.get('status')
+                logger.info(f"Job {job.id}: Sync.so status = {status}")
+
+                if status == 'COMPLETED':
+                    output_url = status_result.get('outputUrl')
+                    if not output_url:
+                        logger.error(f"Job {job.id}: No output URL in completed response")
+                        return
+
+                    logger.info(f"Job {job.id}: Downloading result from {output_url}")
+
+                    # Download the processed video
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(output_url) as response:
+                            if response.status == 200:
+                                video_data = await response.read()
+
+                                # Upload to S3
+                                output_filename = f"pro_result_{job.id}.mp4"
+                                s3_key = f"users/{job.user_id}/jobs/{job.id}/{output_filename}"
+
+                                # Save temporarily
+                                import tempfile
+                                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+                                    tmp_file.write(video_data)
+                                    tmp_path = tmp_file.name
+
+                                try:
+                                    # Upload to S3
+                                    result_url = s3_service.upload_video_and_get_url(tmp_path, s3_key)
+
+                                    if result_url:
+                                        # Update job status
+                                        job.status = JobStatus.COMPLETED.value
+                                        job.output_url = result_url
+                                        job.progress_percentage = 100
+                                        job.progress_message = "Pro video processing completed"
+                                        job.completed_at = datetime.utcnow()
+
+                                        logger.info(f"Job {job.id}: Successfully completed and uploaded to {result_url}")
+                                    else:
+                                        logger.error(f"Job {job.id}: Failed to upload result to S3")
+                                finally:
+                                    # Clean up temp file
+                                    if os.path.exists(tmp_path):
+                                        os.unlink(tmp_path)
+                            else:
+                                logger.error(f"Job {job.id}: Failed to download result, status {response.status}")
+
+                elif status == 'REJECTED' or status == 'FAILED':
+                    error_msg = status_result.get('error', 'Unknown error')
+                    logger.error(f"Job {job.id}: Sync.so job {status}: {error_msg}")
+
+                    job.status = JobStatus.FAILED.value
+                    job.progress_message = f"Lip-sync generation failed: {error_msg}"
+                    job.error_message = error_msg
+
+                elif status == 'PROCESSING':
+                    logger.info(f"Job {job.id}: Still processing on Sync.so")
+
+            except Exception as e:
+                logger.error(f"Error checking job {job.id}: {e}", exc_info=True)
+
+        async def check_all_jobs():
+            tasks = [check_and_update_job(job) for job in pro_jobs]
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Run the async checks
+        asyncio.run(check_all_jobs())
+
+        # Commit all changes
+        db.commit()
+        logger.info(f"Completed checking {len(pro_jobs)} Pro jobs")
+
+    except Exception as e:
+        logger.error(f"Error in check_pro_job_completion: {e}", exc_info=True)
+        db.rollback()
+    finally:
+        db.close()

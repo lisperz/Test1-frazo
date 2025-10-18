@@ -117,8 +117,16 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
   };
 
   const handleSubmit = () => {
+    console.log('=== SEGMENT DIALOG SUBMIT ===');
+    console.log('Audio file:', audioFile);
+    console.log('Editing segment ID:', editingSegmentId);
+    console.log('Start time:', startTime);
+    console.log('End time:', endTime);
+    console.log('Label:', label);
+
     // Validate audio file is selected
     if (!audioFile && !editingSegmentId) {
+      console.error('No audio file selected!');
       setError('Please select an audio file');
       return;
     }
@@ -126,6 +134,7 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
     // Validate time range
     const validation = validateSegmentTimes(startTime, endTime, editingSegmentId || undefined);
     if (!validation.valid) {
+      console.error('Validation failed:', validation.error);
       setError(validation.error || 'Invalid time range');
       return;
     }
@@ -163,6 +172,12 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       updateSegment(editingSegmentId, updates);
     } else {
       // Create new segment
+      console.log('DEBUG: enableAudioCrop=', enableAudioCrop);
+      console.log('DEBUG: audioStartTime=', audioStartTime);
+      console.log('DEBUG: audioEndTime=', audioEndTime);
+      console.log('DEBUG: segment startTime=', startTime);
+      console.log('DEBUG: segment endTime=', endTime);
+
       const audioInput: AudioInput = {
         refId: `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         file: audioFile!,
@@ -172,8 +187,11 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         endTime: enableAudioCrop ? audioEndTime ?? undefined : undefined,
       };
 
+      console.log('DEBUG: audioInput created:', JSON.stringify(audioInput, null, 2));
       const newSegment = createNewSegment(startTime, endTime, audioInput, label);
+      console.log('Created new segment:', JSON.stringify(newSegment, null, 2));
       addSegment(newSegment);
+      console.log('Segment added to store');
     }
 
     onClose();
