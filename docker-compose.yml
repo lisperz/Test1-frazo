@@ -119,31 +119,35 @@ services:
     environment:
       # Database
       DATABASE_URL: postgresql://vti_user:${DB_PASSWORD:-vti_password_123}@db:5432/video_text_inpainting
-      
+
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
-      
+
       # File storage
       UPLOAD_PATH: /app/uploads
-      
+
       # External APIs
       GHOSTCUT_API_KEY: ${GHOSTCUT_API_KEY}
       GHOSTCUT_APP_SECRET: ${GHOSTCUT_APP_SECRET}
       GHOSTCUT_UID: ${GHOSTCUT_UID}
       GHOSTCUT_API_URL: ${GHOSTCUT_API_URL:-https://api.zhaoli.com}
-      
+
       # AWS
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-us-east-2}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      
+
       # Environment
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      
+
       # Celery
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+
+      # Sync.so API (Pro Video Editor)
+      SYNC_API_KEY: ${SYNC_API_KEY}
+      SYNC_API_URL: ${SYNC_API_URL:-https://api.sync.so}
     volumes:
       - upload_data:/app/uploads
       - ./logs:/app/logs
@@ -157,6 +161,29 @@ services:
     restart: unless-stopped
     deploy:
       replicas: 2
+
+  # Celery Beat Scheduler
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.beat
+    container_name: vti-beat
+    environment:
+      # Database
+      DATABASE_URL: postgresql://vti_user:${DB_PASSWORD:-vti_password_123}@db:5432/video_text_inpainting
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+
+      # Celery
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-redis_password_123}@redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   # Frontend
   frontend:
