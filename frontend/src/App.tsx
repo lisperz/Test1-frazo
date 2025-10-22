@@ -10,25 +10,19 @@ import Sidebar from './components/Layout/Sidebar';
 import LoadingScreen from './components/Common/LoadingScreen';
 import ErrorBoundary from './components/Common/ErrorBoundary';
 
-// Pages
-import HomePage from './pages/HomePage';
+// Pages - Refactored organized imports
+import HomePage from './pages/dashboard/HomePage';
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import SimpleDashboardPage from './pages/SimpleDashboardPage';
-import BasicDashboardPage from './pages/BasicDashboardPage';
-import MinimalDashboard from './pages/MinimalDashboard';
-import SafeDashboard from './pages/SafeDashboard';
-import DebugDashboard from './pages/DebugDashboard';
-import UploadPage from './pages/UploadPage';
-import JobsPage from './pages/JobsPage';
-import SettingsPage from './pages/SettingsPage';
-import AdminPage from './pages/AdminPage';
-import VideoInpaintingPage from './pages/VideoInpaintingPage';
-import SimpleVideoInpaintingPage from './pages/SimpleVideoInpaintingPage';
-import TranslateNewPage from './pages/TranslateNewPage';
-import VideoEditorPage from './pages/VideoEditorPage';
-import ProVideoEditorPage from './pages/ProVideoEditorPage';
+import DashboardPage from './pages/dashboard/DashboardPage';
+import UploadPage from './pages/upload/UploadPage';
+import JobsPage from './pages/jobs/JobsPage';
+import SettingsPage from './pages/admin/SettingsPage';
+import AdminPage from './pages/admin/AdminPage';
+import VideoInpaintingPage from './pages/video/VideoInpaintingPage';
+import SimpleVideoInpaintingPage from './pages/video/SimpleVideoInpaintingPage';
+import TranslationsPage from './pages/video/TranslationsPage';
+import ProVideoEditorPage from './pages/video/ProVideoEditorPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -162,21 +156,13 @@ const App: React.FC = () => {
         />
         
         {/* Dashboard - Wrapped with ErrorBoundary for debugging */}
-        <Route 
-          path="/dashboard" 
+        <Route
+          path="/dashboard"
           element={
             <ErrorBoundary>
-              <SafeDashboard />
+              <DashboardPage />
             </ErrorBoundary>
-          } 
-        />
-        <Route 
-          path="/debug-dashboard" 
-          element={
-            <ErrorBoundary>
-              <DebugDashboard />
-            </ErrorBoundary>
-          } 
+          }
         />
         <Route 
           path="/upload" 
@@ -222,7 +208,7 @@ const App: React.FC = () => {
           path="/editor"
           element={
             <ProtectedRoute>
-              <VideoEditorPage />
+              <VideoInpaintingPage />
             </ProtectedRoute>
           }
         />
@@ -238,9 +224,9 @@ const App: React.FC = () => {
         />
         
         {/* Translation Routes */}
-        <Route 
-          path="/translate" 
-          element={<TranslateNewPage />} 
+        <Route
+          path="/translate"
+          element={<TranslationsPage />}
         />
         <Route 
           path="/history" 

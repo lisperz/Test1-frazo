@@ -65,27 +65,27 @@ app.conf.update(
     # Beat schedule for periodic tasks
     beat_schedule={
         'cleanup-expired-files': {
-            'task': 'backend.workers.video_tasks.cleanup_expired_files',
+            'task': 'backend.workers.video_tasks.core_tasks.cleanup_expired_files_task',
             'schedule': 3600.0,  # Run every hour
         },
         'update-user-quotas': {
-            'task': 'backend.workers.video_tasks.update_user_quotas',
+            'task': 'backend.workers.video_tasks.core_tasks.update_user_quotas',
             'schedule': 24 * 3600.0,  # Run daily
         },
         'check-long-running-jobs': {
-            'task': 'backend.workers.video_tasks.check_long_running_jobs',
+            'task': 'backend.workers.video_tasks.core_tasks.check_long_running_jobs',
             'schedule': 600.0,  # Run every 10 minutes (reduced from 5 due to smarter checking)
         },
         'update-processing-jobs-status': {
-            'task': 'backend.workers.video_tasks.update_processing_jobs_status',
+            'task': 'backend.workers.video_tasks.core_tasks.update_processing_jobs_status',
             'schedule': 120.0,  # Run every 2 minutes to keep status current
         },
         'check-ghostcut-completion': {
-            'task': 'backend.workers.ghostcut_tasks.check_ghostcut_completion',
+            'task': 'backend.workers.ghostcut_tasks.tasks.check_ghostcut_completion',
             'schedule': 120.0,  # Check every 2 minutes for completed jobs
         },
         'check-pro-job-completion': {
-            'task': 'backend.workers.video_tasks.check_pro_job_completion',
+            'task': 'backend.workers.video_tasks.core_tasks.check_pro_job_completion',
             'schedule': 60.0,  # Check every minute for Pro job completion
         }
     }

@@ -13,17 +13,16 @@ from contextlib import asynccontextmanager
 
 from backend.config import settings, validate_settings
 from backend.models.database import init_database
-from backend.api.routes import auth, users, jobs, files, admin, ghostcut
-from backend.api.routes import upload_and_process, direct_process
-from backend.api.routes import sync_api
-# Pro sync API will be registered after all dependencies are loaded
-try:
-    from backend.api.routes import pro_sync_api as pro_sync_module
-    pro_sync_api = pro_sync_module
-except ImportError as e:
-    import logging
-    logging.warning(f"Pro Sync API not available: {e}")
-    pro_sync_api = None
+
+# Import routes from refactored subdirectories
+from backend.api.routes.auth import router as auth_router
+from backend.api.routes.users import router as users_router
+from backend.api.routes.jobs import router as jobs_router
+from backend.api.routes.files import router as files_router
+from backend.api.routes.admin import router as admin_router
+from backend.api.routes.video_editors import router as video_editors_router
+from backend.api.routes.upload import router as upload_router
+
 from backend.api.websocket import websocket_router
 
 # Configure logging with timezone
@@ -174,71 +173,48 @@ async def root():
         "health_url": "/health"
     }
 
-# Include API routers
+# Include API routers from refactored subdirectories
 app.include_router(
-    auth.router,
+    auth_router,
     prefix="/api/v1/auth",
     tags=["Authentication"]
 )
 
 app.include_router(
-    users.router,
+    users_router,
     prefix="/api/v1/users",
     tags=["Users"]
 )
 
 app.include_router(
-    jobs.router,
+    jobs_router,
     prefix="/api/v1/jobs",
     tags=["Video Processing Jobs"]
 )
 
 app.include_router(
-    files.router,
+    files_router,
     prefix="/api/v1/files",
     tags=["File Management"]
 )
 
 app.include_router(
-    admin.router,
+    admin_router,
     prefix="/api/v1/admin",
     tags=["Administration"]
 )
 
 app.include_router(
-    ghostcut.router,
-    prefix="/api/v1/ghostcut",
-    tags=["GhostCut Video Editor"]
+    video_editors_router,
+    prefix="/api/v1/video-editors",
+    tags=["Video Editors (GhostCut, Sync API)"]
 )
 
 app.include_router(
-    upload_and_process.router,
+    upload_router,
     prefix="/api/v1",
     tags=["Upload and Process"]
 )
-
-app.include_router(
-    direct_process.router,
-    prefix="/api/v1/direct",
-    tags=["Direct Processing (No Queue)"]
-)
-
-app.include_router(
-    sync_api.router,
-    prefix="/api/v1/sync",
-    tags=["Sync API Lip-Sync Processing"]
-)
-
-# Register Pro Sync API if available
-if pro_sync_api is not None:
-    app.include_router(
-        pro_sync_api.router,
-        prefix="/api/v1/sync",
-        tags=["Pro Video Editor - Segment-Based Lip-Sync"]
-    )
-    logger.info("Pro Sync API routes registered successfully")
-else:
-    logger.warning("Pro Sync API not available - skipping route registration")
 
 # Include WebSocket router
 app.include_router(websocket_router)

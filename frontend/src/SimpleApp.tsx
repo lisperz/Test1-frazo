@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import SimpleVideoInpaintingPage from './pages/SimpleVideoInpaintingPage';
+import SimpleVideoInpaintingPage from './pages/video/SimpleVideoInpaintingPage';
 
 const SimpleApp: React.FC = () => {
   return (

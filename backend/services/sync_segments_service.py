@@ -117,7 +117,7 @@ class SyncSegmentsService:
             }
 
             logger.info(f"Creating segmented lip-sync with {len(segments)} segments")
-            logger.debug(f"Sync.so API payload: {json.dumps(payload, indent=2)}")
+            logger.info(f"Sync.so API payload: {json.dumps(payload, indent=2)}")
 
             # Call Sync.so API
             if not self.api_key:
