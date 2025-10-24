@@ -11,6 +11,15 @@ import {
   SEGMENT_COLORS
 } from '../types/segments';
 
+// Store uploaded audio files separately to enable reuse
+export interface UploadedAudioFile {
+  refId: string;
+  file: File;
+  fileName: string;
+  fileSize: number;
+  uploadedAt: number;
+}
+
 interface SegmentsStore {
   // State
   segments: VideoSegment[];
@@ -18,6 +27,7 @@ interface SegmentsStore {
   currentSegmentId: string | null;
   videoFile: File | null;
   videoUrl: string | null;
+  uploadedAudioFiles: UploadedAudioFile[];
 
   // Actions - Segment Management
   addSegment: (segment: VideoSegment) => void;
@@ -29,6 +39,12 @@ interface SegmentsStore {
   // Actions - Video Management
   setVideoFile: (file: File, url: string, duration: number) => void;
   clearVideo: () => void;
+
+  // Actions - Audio File Management
+  addAudioFile: (file: File) => UploadedAudioFile;
+  getAudioFileByRefId: (refId: string) => UploadedAudioFile | undefined;
+  getAllAudioFiles: () => UploadedAudioFile[];
+  removeUnusedAudioFiles: () => void;
 
   // Validation
   validateSegmentTimes: (
@@ -53,6 +69,7 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
   currentSegmentId: null,
   videoFile: null,
   videoUrl: null,
+  uploadedAudioFiles: [],
 
   // Add a new segment with automatic sorting
   addSegment: (segment) => {
@@ -103,7 +120,61 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
     videoDuration: 0,
     segments: [],
     currentSegmentId: null,
+    uploadedAudioFiles: [],
   }),
+
+  // Add audio file to the store (or return existing if already uploaded)
+  addAudioFile: (file: File) => {
+    const state = get();
+
+    // Check if this exact file is already uploaded (by name and size)
+    const existing = state.uploadedAudioFiles.find(
+      (audio) => audio.fileName === file.name && audio.fileSize === file.size
+    );
+
+    if (existing) {
+      console.log('🎵 Reusing existing audio file:', existing.fileName);
+      return existing;
+    }
+
+    // Create new audio file entry
+    const newAudioFile: UploadedAudioFile = {
+      refId: `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      fileName: file.name,
+      fileSize: file.size,
+      uploadedAt: Date.now(),
+    };
+
+    console.log('🎵 Adding new audio file to store:', newAudioFile.fileName);
+    set((state) => ({
+      uploadedAudioFiles: [...state.uploadedAudioFiles, newAudioFile],
+    }));
+
+    return newAudioFile;
+  },
+
+  // Get audio file by refId
+  getAudioFileByRefId: (refId: string) => {
+    return get().uploadedAudioFiles.find((audio) => audio.refId === refId);
+  },
+
+  // Get all uploaded audio files
+  getAllAudioFiles: () => {
+    return get().uploadedAudioFiles;
+  },
+
+  // Remove audio files that are not used in any segment
+  removeUnusedAudioFiles: () => {
+    const state = get();
+    const usedRefIds = new Set(state.segments.map((seg) => seg.audioInput.refId));
+
+    set((state) => ({
+      uploadedAudioFiles: state.uploadedAudioFiles.filter((audio) =>
+        usedRefIds.has(audio.refId)
+      ),
+    }));
+  },
 
   // Validate segment times
   validateSegmentTimes: (startTime, endTime, excludeId) => {

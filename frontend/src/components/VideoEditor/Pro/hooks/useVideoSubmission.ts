@@ -68,13 +68,22 @@ export const useVideoSubmission = (
       formData.append('file', videoFile);
       formData.append('display_name', `Pro Video - ${videoFile.name}`);
 
-      // Add all audio files from segments
-      const audioFiles = segments.map(seg => seg.audioInput.file).filter(Boolean);
-      audioFiles.forEach((file) => {
-        formData.append('audio_files', file as File);
+      // Add only UNIQUE audio files (deduplicate by refId)
+      // This is important when the same audio file is reused across multiple segments
+      const uniqueAudioMap = new Map<string, File>();
+      segments.forEach(seg => {
+        if (seg.audioInput.file && !uniqueAudioMap.has(seg.audioInput.refId)) {
+          uniqueAudioMap.set(seg.audioInput.refId, seg.audioInput.file);
+        }
       });
 
-      console.log('Including', audioFiles.length, 'audio files for segments');
+      // Append unique audio files in the order their refIds appear
+      uniqueAudioMap.forEach((file) => {
+        formData.append('audio_files', file);
+      });
+
+      console.log('Including', uniqueAudioMap.size, 'unique audio files for', segments.length, 'segments');
+      console.log('Unique audio refIds:', Array.from(uniqueAudioMap.keys()));
       console.log('RAW SEGMENTS FROM STORE:', JSON.stringify(segments, null, 2));
 
       // Build segments data for API

@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { calculateProgressPercentage, formatTime as formatTimeUtil, clampTime, handleTimelineInteraction } from '../../../utils/timelineUtils';
 import { useSegmentsStore } from '../../../store/segmentsStore';
 import SegmentDialog from './SegmentDialog';
+import { API_ENDPOINTS } from './constants/editorConstants';
 
 interface ProVideoEditorProps {
   videoUrl: string;
@@ -633,13 +634,22 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
               formData.append('file', videoFile);
               formData.append('display_name', `Pro Video - ${videoFile.name}`);
 
-              // Add all audio files from segments
-              const audioFiles = segments.map(seg => seg.audioInput.file).filter(Boolean);
-              audioFiles.forEach((file, index) => {
-                formData.append('audio_files', file as File);
+              // Add only UNIQUE audio files (deduplicate by refId)
+              // This is important when the same audio file is reused across multiple segments
+              const uniqueAudioMap = new Map<string, File>();
+              segments.forEach(seg => {
+                if (seg.audioInput.file && !uniqueAudioMap.has(seg.audioInput.refId)) {
+                  uniqueAudioMap.set(seg.audioInput.refId, seg.audioInput.file);
+                }
               });
 
-              console.log('Including', audioFiles.length, 'audio files for segments');
+              // Append unique audio files in the order their refIds appear
+              uniqueAudioMap.forEach((file) => {
+                formData.append('audio_files', file);
+              });
+
+              console.log('Including', uniqueAudioMap.size, 'unique audio files for', segments.length, 'segments');
+              console.log('Unique audio refIds:', Array.from(uniqueAudioMap.keys()));
               console.log('RAW SEGMENTS FROM STORE:', JSON.stringify(segments, null, 2));
 
               // Build segments data for API
@@ -698,7 +708,7 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
 
               console.log('Sending request to Pro API endpoint');
 
-              const response = await fetch('/api/v1/sync/pro-sync-process', {
+              const response = await fetch(API_ENDPOINTS.PRO_SYNC_PROCESS, {
                 method: 'POST',
                 headers,
                 body: formData

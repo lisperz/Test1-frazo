@@ -26,13 +26,18 @@ def check_ghostcut_completion_sync() -> None:
     """
     Periodic task to check if any processing jobs have been completed in GhostCut
     This runs every 2 minutes to catch jobs that may have been completed
+
+    NOTE: Excludes Pro jobs (is_pro_job=True) because they have their own monitoring system
+    in backend/workers/video_tasks/pro_jobs.py that handles both Sync.so and GhostCut phases
     """
     db = get_db()
     try:
-        # Get all jobs that are still in processing state with zhaoli task IDs
+        # Get all NON-PRO jobs that are still in processing state with zhaoli task IDs
+        # Exclude Pro jobs to prevent conflicts with the Pro job monitoring system
         processing_jobs = db.query(VideoJob).filter(
             VideoJob.status == JobStatus.PROCESSING.value,
-            VideoJob.zhaoli_task_id.isnot(None)
+            VideoJob.zhaoli_task_id.isnot(None),
+            VideoJob.is_pro_job != True  # Exclude Pro jobs
         ).all()
 
         logger.info(

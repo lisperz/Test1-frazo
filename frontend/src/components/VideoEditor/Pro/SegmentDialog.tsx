@@ -18,12 +18,18 @@ import {
   Checkbox,
   FormControlLabel,
   Collapse,
+  Radio,
+  RadioGroup,
+  Chip,
+  Divider,
 } from '@mui/material';
 import {
   Close,
   CloudUpload,
   CheckCircle,
   ContentCut,
+  AudioFile,
+  Refresh,
 } from '@mui/icons-material';
 import {
   useSegmentsStore,
@@ -53,12 +59,17 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
     updateSegment,
     getSegmentById,
     validateSegmentTimes,
+    getAllAudioFiles,
+    addAudioFile,
+    getAudioFileByRefId,
   } = useSegmentsStore();
 
   // Form state
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [selectedAudioRefId, setSelectedAudioRefId] = useState<string | null>(null);
+  const [audioSelectionMode, setAudioSelectionMode] = useState<'existing' | 'upload'>('upload');
   const [label, setLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +81,8 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
   // Initialize form when dialog opens
   useEffect(() => {
     if (open) {
+      const existingAudioFiles = getAllAudioFiles();
+
       if (editingSegmentId) {
         // Edit mode - load existing segment
         const segment = getSegmentById(editingSegmentId);
@@ -77,8 +90,9 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
           setStartTime(segment.startTime);
           setEndTime(segment.endTime);
           setLabel(segment.label || '');
-          // Note: Can't load the actual File object, so show filename only
+          setSelectedAudioRefId(segment.audioInput.refId);
           setAudioFile(segment.audioInput.file);
+          setAudioSelectionMode('existing');
 
           // Load audio crop settings if they exist
           const hasAudioCrop = segment.audioInput.startTime !== null || segment.audioInput.startTime !== undefined ||
@@ -95,13 +109,23 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         setEndTime(suggestedEnd);
         setLabel('');
         setAudioFile(null);
+        setSelectedAudioRefId(null);
         setEnableAudioCrop(false);
         setAudioStartTime(null);
         setAudioEndTime(null);
+
+        // If there are existing audio files, default to using existing mode
+        if (existingAudioFiles.length > 0) {
+          setAudioSelectionMode('existing');
+          setSelectedAudioRefId(existingAudioFiles[0].refId);
+          setAudioFile(existingAudioFiles[0].file);
+        } else {
+          setAudioSelectionMode('upload');
+        }
       }
       setError(null);
     }
-  }, [open, editingSegmentId, currentTime, videoDuration, getSegmentById]);
+  }, [open, editingSegmentId, currentTime, videoDuration, getSegmentById, getAllAudioFiles]);
 
   const handleAudioFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -112,6 +136,16 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         return;
       }
       setAudioFile(file);
+      setSelectedAudioRefId(null); // Clear refId when uploading new file
+      setError(null);
+    }
+  };
+
+  const handleExistingAudioSelect = (refId: string) => {
+    const audioFileData = getAudioFileByRefId(refId);
+    if (audioFileData) {
+      setSelectedAudioRefId(refId);
+      setAudioFile(audioFileData.file);
       setError(null);
     }
   };
@@ -151,6 +185,20 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       }
     }
 
+    // Determine the refId to use
+    let finalRefId: string;
+
+    if (audioSelectionMode === 'existing' && selectedAudioRefId) {
+      // Reuse existing audio file refId
+      finalRefId = selectedAudioRefId;
+      console.log('🔄 Reusing existing audio file with refId:', finalRefId);
+    } else {
+      // Upload new audio file and get its refId
+      const uploadedAudioFile = addAudioFile(audioFile!);
+      finalRefId = uploadedAudioFile.refId;
+      console.log('📤 Uploaded new audio file with refId:', finalRefId);
+    }
+
     if (editingSegmentId) {
       // Update existing segment
       const updates: any = {
@@ -160,7 +208,7 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       };
       if (audioFile) {
         const audioInput: AudioInput = {
-          refId: `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          refId: finalRefId,
           file: audioFile,
           fileName: audioFile.name,
           fileSize: audioFile.size,
@@ -179,7 +227,7 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       console.log('DEBUG: segment endTime=', endTime);
 
       const audioInput: AudioInput = {
-        refId: `audio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        refId: finalRefId,
         file: audioFile!,
         fileName: audioFile!.name,
         fileSize: audioFile!.size,
@@ -264,42 +312,180 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
             🎵 Audio File
           </Typography>
 
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              textAlign: 'center',
-              cursor: 'pointer',
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
-            component="label"
-          >
-            <input
-              type="file"
-              accept=".mp3,.wav,.m4a,.aac"
-              onChange={handleAudioFileChange}
-              style={{ display: 'none' }}
-            />
+          {(() => {
+            const existingAudioFiles = getAllAudioFiles();
 
-            {audioFile ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                <CheckCircle color="success" />
-                <Typography variant="body2">
-                  {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
-                </Typography>
-              </Box>
-            ) : (
-              <Box>
-                <CloudUpload sx={{ fontSize: 40, color: 'action.active', mb: 1 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Click to upload audio file
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Supported: MP3, WAV, M4A, AAC • Max 100MB
-                </Typography>
-              </Box>
-            )}
-          </Paper>
+            if (existingAudioFiles.length > 0) {
+              return (
+                <Box>
+                  {/* Show info message */}
+                  <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                    <Typography variant="caption">
+                      💡 You can reuse previously uploaded audio files or upload a new one
+                    </Typography>
+                  </Alert>
+
+                  {/* Radio Group for Selection Mode */}
+                  <RadioGroup
+                    value={audioSelectionMode}
+                    onChange={(e) => {
+                      setAudioSelectionMode(e.target.value as 'existing' | 'upload');
+                      if (e.target.value === 'upload') {
+                        setSelectedAudioRefId(null);
+                        setAudioFile(null);
+                      }
+                    }}
+                  >
+                    {/* Option 1: Use Existing Audio */}
+                    <FormControlLabel
+                      value="existing"
+                      control={<Radio />}
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Refresh sx={{ fontSize: 18, color: '#10b981' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Reuse existing audio file
+                          </Typography>
+                        </Box>
+                      }
+                    />
+
+                    {/* Show existing audio files when this mode is selected */}
+                    {audioSelectionMode === 'existing' && (
+                      <Box sx={{ ml: 4, mt: 1, mb: 2 }}>
+                        {existingAudioFiles.map((audio) => (
+                          <Paper
+                            key={audio.refId}
+                            variant="outlined"
+                            sx={{
+                              p: 1.5,
+                              mb: 1,
+                              cursor: 'pointer',
+                              border: selectedAudioRefId === audio.refId ? '2px solid #f59e0b' : '1px solid',
+                              bgcolor: selectedAudioRefId === audio.refId ? 'rgba(245, 158, 11, 0.05)' : 'transparent',
+                              '&:hover': { bgcolor: 'action.hover' },
+                            }}
+                            onClick={() => handleExistingAudioSelect(audio.refId)}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <AudioFile sx={{ color: selectedAudioRefId === audio.refId ? '#f59e0b' : 'action.active' }} />
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {audio.fileName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {(audio.fileSize / 1024 / 1024).toFixed(2)} MB
+                                </Typography>
+                              </Box>
+                              {selectedAudioRefId === audio.refId && (
+                                <CheckCircle sx={{ color: '#f59e0b' }} />
+                              )}
+                            </Box>
+                          </Paper>
+                        ))}
+                      </Box>
+                    )}
+
+                    {/* Option 2: Upload New Audio */}
+                    <FormControlLabel
+                      value="upload"
+                      control={<Radio />}
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <CloudUpload sx={{ fontSize: 18, color: '#3b82f6' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Upload a new audio file
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </RadioGroup>
+
+                  {/* Show upload area when upload mode is selected */}
+                  {audioSelectionMode === 'upload' && (
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        ml: 4,
+                        mt: 1,
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                      component="label"
+                    >
+                      <input
+                        type="file"
+                        accept=".mp3,.wav,.m4a,.aac"
+                        onChange={handleAudioFileChange}
+                        style={{ display: 'none' }}
+                      />
+
+                      {audioFile ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                          <CheckCircle color="success" />
+                          <Typography variant="body2">
+                            {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Box>
+                          <CloudUpload sx={{ fontSize: 40, color: 'action.active', mb: 1 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            Click to upload audio file
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Supported: MP3, WAV, M4A, AAC • Max 100MB
+                          </Typography>
+                        </Box>
+                      )}
+                    </Paper>
+                  )}
+                </Box>
+              );
+            } else {
+              // No existing audio files - show simple upload
+              return (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                  component="label"
+                >
+                  <input
+                    type="file"
+                    accept=".mp3,.wav,.m4a,.aac"
+                    onChange={handleAudioFileChange}
+                    style={{ display: 'none' }}
+                  />
+
+                  {audioFile ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                      <CheckCircle color="success" />
+                      <Typography variant="body2">
+                        {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box>
+                      <CloudUpload sx={{ fontSize: 40, color: 'action.active', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Click to upload audio file
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Supported: MP3, WAV, M4A, AAC • Max 100MB
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              );
+            }
+          })()}
 
           {/* Audio Crop Section (Optional) */}
           {audioFile && (

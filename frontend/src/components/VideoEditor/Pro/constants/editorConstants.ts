@@ -73,7 +73,7 @@ export const TIMELINE_CONSTANTS = {
  * API endpoint constants
  */
 export const API_ENDPOINTS = {
-  PRO_SYNC_PROCESS: '/api/v1/sync/pro-sync-process',
+  PRO_SYNC_PROCESS: '/api/v1/video-editors/pro-sync-process',
   AUTH_ME: '/api/v1/auth/me',
   AUTH_LOGIN: '/api/v1/auth/login',
 } as const;

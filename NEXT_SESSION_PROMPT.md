@@ -9,26 +9,22 @@
 
 The codebase is **production ready** with all major features working correctly.
 
-### Recent Updates
+### Recent Updates (October 24, 2025)
 
-**UI Enhancement** (October 24, 2025):
-- ✅ **Normal Video Editor Upload Page**: Created professional-looking upload interface at `/editor`
-- ✅ **Styling Consistency**: Matches Pro Video Editor design with blue gradient header, stepper, and card layout
-- ✅ **User Experience**: Professional interface replaces old basic upload page
+**Critical Bug Fixes**:
+- ✅ **GhostCut Monitoring Conflict**: Fixed monitoring system that was interfering with Pro jobs by excluding Pro jobs from old GhostCut monitoring (`backend/workers/ghostcut_tasks/monitoring.py:40`)
+- ✅ **Audio Deduplication**: Frontend now sends only unique audio files (by refId) to backend when same audio is reused across segments
+- ✅ **Jobs List Endpoint**: Fixed GET "/" route registration by importing `jobs_original` first in `/backend/api/routes/jobs/management/__init__.py`
+- ✅ **API Endpoint Path**: Corrected `/api/v1/sync/pro-sync-process` → `/api/v1/video-editors/pro-sync-process`
 
-**Complete Code Refactoring** (October 18-19, 2025):
-- ✅ **32 files** over 300 lines → **0 files** (100% compliance with CLAUDE.md)
-- ✅ **2 directories** over 8 files → **0 directories** (100% compliance)
-- ✅ **React upgraded**: v18.2.0 → v19.0.0
-- ✅ **TypeScript upgraded**: v4.9.5 → v5.9.3
-- ✅ **~200 new files created** with proper modular architecture
-- ✅ **All code smells eliminated**
+**Pro Video Editor Features**:
+- ✅ **Audio File Reuse**: Users can reuse previously uploaded audio files across multiple segments via UI dialog
+- ✅ **Segment Dialog**: Shows existing audio files with radio button selection (reuse vs upload new)
+- ✅ **Chained Processing**: Sync.so (lip-sync) → GhostCut (text inpainting) workflow fully operational
+- ✅ **Background Workers**: Automatic polling every 60 seconds for both Sync.so and GhostCut phases
 
-**Pro Video Editor Implementation** (October 19, 2025):
-- ✅ **Chained Processing**: Sync.so (lip-sync) → GhostCut (text inpainting) workflow
-- ✅ **Background Worker**: Automatic polling every 60 seconds
-- ✅ **Job Completion**: Automatic S3 upload and status updates
-- ✅ **Segment-based Processing**: Multiple time-based audio replacements
+**UI Enhancements**:
+- ✅ **Normal Video Editor Upload Page**: Professional interface at `/editor` matching Pro editor design
 
 ---
 
@@ -38,40 +34,37 @@ The codebase is **production ready** with all major features working correctly.
 ```
 backend/
 ├── api/routes/
-│   ├── auth/              (5 files, authentication)
-│   ├── users/             (5 files, user management)
-│   ├── jobs/              (2 subdirs: management/, processing/)
-│   ├── files/             (5 files, file operations)
-│   ├── admin/             (5 files, admin panel)
-│   ├── video_editors/     (2 subdirs: ghostcut/, sync/)
-│   └── upload/            (5 files, upload handling)
+│   ├── jobs/management/
+│   │   ├── __init__.py          (IMPORTANT: imports jobs_original FIRST)
+│   │   └── jobs_original.py     (Contains GET "/" endpoint for jobs list)
+│   └── video_editors/sync/
+│       ├── routes.py             (Pro sync API endpoint)
+│       └── sync_segments_service.py
 ├── workers/
-│   ├── video_tasks/       (7 files, video processing)
-│   └── ghostcut_tasks/    (5 files, GhostCut integration)
+│   ├── video_tasks/
+│   │   └── pro_jobs.py          (Pro job monitoring: Sync.so + GhostCut)
+│   └── ghostcut_tasks/
+│       └── monitoring.py        (Now excludes Pro jobs - line 40)
 └── services/
-    ├── ghostcut/          (3 files, GhostCut API client)
-    └── s3/                (4 files, S3 storage service)
+    ├── sync_segments_service.py (Sync.so API integration)
+    └── s3/                      (S3 storage with audio upload)
 ```
 
 ### Frontend (React 19/TypeScript 5.9)
 ```
 frontend/src/
-├── components/VideoEditor/
-│   ├── Pro/               (types/, constants/, utils/, hooks/, components/)
-│   ├── GhostCut/          (types/, constants/, utils/, hooks/, components/)
-│   └── VideoUpload/       (shared upload components)
-└── pages/
-    ├── video/
-    │   ├── VideoEditorPage.tsx      (NEW: Professional upload page for /editor)
-    │   ├── ProVideoEditorPage.tsx   (Pro editor with segments)
-    │   ├── VideoInpaintingPage.tsx
-    │   ├── SimpleVideoInpaintingPage.tsx
-    │   └── TranslationsPage.tsx
-    ├── admin/             (AdminPage/, SettingsPage/)
-    ├── jobs/              (JobsPage/, UploadPage/)
-    ├── dashboard/         (DashboardPage/, HomePage/)
-    ├── Auth/              (RegisterPage/)
-    └── translation/       (TranslationsStandalone/)
+├── components/VideoEditor/Pro/
+│   ├── hooks/
+│   │   └── useVideoSubmission.ts    (Audio deduplication logic)
+│   ├── components/
+│   │   └── SegmentDialog.tsx        (Audio reuse UI)
+│   └── constants/
+│       └── editorConstants.ts       (API endpoints)
+├── store/
+│   └── segmentsStore.ts             (Audio file storage & management)
+└── pages/video/
+    ├── VideoEditorPage.tsx          (Normal editor upload page)
+    └── ProVideoEditorPage.tsx       (Pro editor with segments)
 ```
 
 ---
@@ -95,18 +88,19 @@ frontend/src/
 **Video Editors**:
 - ✅ **Normal Video Editor** (`/editor`): Professional upload page → GhostCut text inpainting
 - ✅ **Pro Video Editor** (`/editor/pro`): Segment-based lip-sync + optional text inpainting
+  - Multi-segment audio replacement with time ranges
+  - Audio file reuse across segments
+  - Chained processing: Sync.so → GhostCut
 - ✅ Simple video inpainting (`/simple`)
 - ✅ Translations page (`/translate`)
 
 **Backend Features**:
-- ✅ Sync.so segments API integration
+- ✅ Sync.so segments API integration (model: sync-2, sync_mode: remap)
 - ✅ GhostCut video text inpainting API
-- ✅ Background worker with automatic polling
-- ✅ Chained processing: Sync.so → GhostCut
-- ✅ Job management and monitoring
-- ✅ User authentication and authorization
-- ✅ File uploads to S3 with public access
-- ✅ Real-time WebSocket updates
+- ✅ Separate monitoring for Pro jobs vs regular GhostCut jobs
+- ✅ Audio file deduplication by refId
+- ✅ S3 storage with proper audio/video uploads
+- ✅ Job management with GET "/" endpoint working
 
 ---
 
@@ -120,33 +114,29 @@ docker-compose up -d
 # Stop all services
 docker-compose down
 
+# Restart workers (after code changes)
+docker-compose restart worker
+
 # View logs
 docker-compose logs -f backend
 docker-compose logs -f worker
-
-# Check service status
-docker-compose ps
 ```
 
-### Rebuild Frontend
+### Monitor Pro Jobs
 ```bash
-# After making frontend changes
-docker-compose build frontend
-docker-compose up -d frontend
-```
-
-### Monitor Jobs
-```bash
-# Check Pro job status in database
+# Check Pro job status
 docker-compose exec db psql -U vti_user -d video_text_inpainting \
   -c "SELECT id, status, progress_percentage,
-      job_metadata->'sync_generation_id' as sync_gen_id
+      job_metadata->'sync_generation_id' as sync_gen_id,
+      job_metadata->'ghostcut_task_id' as ghostcut_task_id
       FROM video_jobs
       WHERE is_pro_job = TRUE
       ORDER BY created_at DESC LIMIT 5;"
 
-# View worker logs
-docker-compose logs -f worker
+# View Sync.so request/response
+docker-compose exec db psql -U vti_user -d video_text_inpainting \
+  -c "SELECT jsonb_pretty(job_metadata->'sync_response')
+      FROM video_jobs WHERE id = 'JOB_ID_HERE';"
 ```
 
 ### Access Applications
@@ -172,65 +162,45 @@ docker-compose logs -f worker
 
 ---
 
-## 📚 Important Files
+## 📚 Important Files & Changes
 
-### New Files Created (October 24, 2025)
-- **`frontend/src/pages/video/VideoEditorPage.tsx`**: Professional upload page for normal video editor
+### Critical Files Modified (October 24, 2025)
 
-### Documentation Files
-1. **CLAUDE.md** - Development guidelines and architecture overview
-2. **README.md** - Project introduction and setup guide
-3. **FINAL_REFACTORING_REPORT.md** - Complete refactoring details
-4. **PRO_EDITOR_CHAINED_PROCESSING.md** - Pro Video Editor implementation
-5. **TESTING_GUIDE.md** - Step-by-step testing instructions
+1. **`backend/workers/ghostcut_tasks/monitoring.py`** (Line 40)
+   - Added `VideoJob.is_pro_job != True` filter to exclude Pro jobs
+   - Prevents conflict with Pro job monitoring system
 
----
+2. **`backend/api/routes/jobs/management/__init__.py`** (Line 15-18)
+   - Imports `jobs_original` FIRST before routes_part1-3
+   - Ensures GET "/" route is registered properly
 
-## 🆘 Troubleshooting
+3. **`frontend/src/components/VideoEditor/Pro/hooks/useVideoSubmission.ts`** (Line 71-86)
+   - Audio deduplication using `Map<string, File>`
+   - Only sends unique audio files to backend
 
-### Frontend Changes Not Showing
-```bash
-# Rebuild and restart frontend
-docker-compose build --no-cache frontend
-docker-compose up -d frontend
+4. **`frontend/src/store/segmentsStore.ts`**
+   - Added `uploadedAudioFiles` array
+   - Methods: `addAudioFile()`, `getAllAudioFiles()`, `getAudioFileByRefId()`
 
-# Check if new image is running
-docker ps --filter "name=vti-frontend"
-```
-
-### Services Won't Start
-```bash
-docker info  # Check Docker is running
-docker-compose down
-docker-compose up -d
-```
-
-### Database Errors
-```bash
-docker-compose restart db
-docker-compose exec db psql -U vti_user -d video_text_inpainting
-```
-
-### Worker Not Processing Jobs
-```bash
-docker-compose logs -f worker
-docker-compose restart worker
-```
+5. **`frontend/src/components/VideoEditor/Pro/constants/editorConstants.ts`** (Line 76)
+   - Fixed API endpoint: `/api/v1/video-editors/pro-sync-process`
 
 ---
 
-## 📝 Known Status
+## 📝 Known Issues & Notes
 
-### Pro Video Editor (October 24, 2025)
-- **Note**: The Pro Video Editor component (`ProVideoEditor.tsx`) contains TypeScript warnings that are non-fatal
-- **Status**: These are ESLint warnings, not compilation errors
-- **Impact**: Build succeeds and Pro editor is functional
-- **Action**: No immediate fix required, warnings can be addressed in future optimization
+### Sync.so API Audio Quality (External Issue)
+- **Issue**: Sync.so API has internal audio handling bug causing harsh/degraded audio quality when processing segments with audio cropping
+- **Impact**: Affects Pro Video Editor output audio quality
+- **Status**: Reported to Sync.so, awaiting fix on their side
+- **Workaround**: None available - issue is in Sync.so's internal processing
+- **Our Service**: ✅ Working correctly - audio files uploaded to S3 without degradation, request payload properly formatted
 
-### Build Process
-- **Current Setup**: Uses `npm ci --legacy-peer-deps` flag in Dockerfile
-- **Reason**: Resolves React 19 peer dependency conflicts with @mui/x-data-grid
-- **Status**: Working correctly, all builds succeed
+### Audio Specifications Observed
+- Original video: Stereo, 48kHz, AAC 316 kbps
+- Uploaded audio: Mono, 44.1kHz, MP3 192 kbps
+- Sync.so output: Mono, 44.1kHz, AAC 213 kbps
+- Sample rate/channel mismatch causes Sync.so to downsample/downmix
 
 ---
 
@@ -239,20 +209,20 @@ docker-compose restart worker
 **Project Status**: Production Ready
 
 **What's Working**:
-- ✅ Professional upload page for Normal Video Editor at `/editor`
-- ✅ Pro Video Editor with chained processing at `/editor/pro`
+- ✅ Pro Video Editor with audio reuse and segment-based processing
+- ✅ Audio file deduplication preventing duplicate uploads
+- ✅ Jobs list endpoint showing all submitted jobs
+- ✅ Chained processing (Sync.so → GhostCut) without monitoring conflicts
+- ✅ S3 integration working correctly
 - ✅ Complete codebase refactored (100% compliance)
-- ✅ All services healthy and operational
-- ✅ S3 integration working
-- ✅ Sync.so API working
-- ✅ GhostCut API working
-- ✅ React 19 & TypeScript 5.9 upgraded
 
-**Latest Changes**:
-- **Oct 24, 2025**: Created professional upload page for Normal Video Editor
-- **Oct 19, 2025**: Fixed Pro Video Editor background worker and Sync.so integration
-- **Oct 18-19, 2025**: Implemented Pro Video Editor with segment-based lip-sync
-- **Oct 18, 2025**: Completed full codebase refactoring
+**Latest Session Changes** (October 24, 2025):
+- Fixed GhostCut monitoring system interference with Pro jobs
+- Implemented audio file reuse feature in Pro Video Editor
+- Fixed jobs list endpoint registration order
+- Fixed API endpoint path in frontend
+- Implemented audio deduplication logic
+- Investigated and documented Sync.so audio quality issue (external)
 
 **Next Session**: Ready for new features, optimizations, or bug fixes!
 
