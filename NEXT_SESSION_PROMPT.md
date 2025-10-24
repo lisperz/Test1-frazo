@@ -11,6 +11,9 @@ The codebase is **production ready** with all major features working correctly.
 
 ### Recent Updates (October 24, 2025)
 
+**Configuration Updates**:
+- ✅ **Sync.so API Key**: Updated to new key with more credits (`sk-JkRdjIsaTKW-5-fPn0ig2A...`)
+
 **Critical Bug Fixes**:
 - ✅ **GhostCut Monitoring Conflict**: Fixed monitoring system that was interfering with Pro jobs by excluding Pro jobs from old GhostCut monitoring (`backend/workers/ghostcut_tasks/monitoring.py:40`)
 - ✅ **Audio Deduplication**: Frontend now sends only unique audio files (by refId) to backend when same audio is reused across segments
@@ -217,6 +220,7 @@ docker-compose exec db psql -U vti_user -d video_text_inpainting \
 - ✅ Complete codebase refactored (100% compliance)
 
 **Latest Session Changes** (October 24, 2025):
+- Updated Sync.so API key to new key with more credits
 - Fixed GhostCut monitoring system interference with Pro jobs
 - Implemented audio file reuse feature in Pro Video Editor
 - Fixed jobs list endpoint registration order
