@@ -1,3 +1,27 @@
+"""
+Files routes - Part 2
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import Optional
+from datetime import datetime
+import uuid
+import os
+import mimetypes
+import logging
+
+from backend.models.database import get_database
+from backend.models.user import User
+from backend.models.file import File, FileAccessLog
+from backend.auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
 @router.get("/{file_id}/download")
 async def download_file(
     file_id: str,
@@ -59,6 +83,13 @@ async def download_file(
         content_type = content_type or "application/octet-stream"
 
     # Stream file response for large files
+    return FileResponse(
+        path=file.storage_path,
+        media_type=content_type,
+        filename=file.original_filename or file.filename
+    )
+
+
 @router.get("/{file_id}/stream")
 async def stream_file(
     file_id: str,
@@ -163,39 +194,7 @@ async def delete_file(
 
     return {"message": "File deleted successfully"}
 
-@router.post("/{file_id}/share")
-async def share_file(
-    file_id: str,
-    expires_hours: int = 24,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database)
-):
-    """Generate a public share link for a file"""
 
-    try:
-        file_uuid = uuid.UUID(file_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file ID format"
-        )
-
-    file = db.query(File).filter(
-        File.id == file_uuid,
-        File.user_id == current_user.id
-    ).first()
-
-    if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found"
-        )
-
-    # Check limits on sharing (optional)
-    if expires_hours > 168:  # Max 7 days
-        expires_hours = 168
-
-    # Generate share token (simplified - in production use proper token generation)
 @router.get("/shared/{share_token}")
 async def download_shared_file(
     share_token: str,
@@ -244,9 +243,8 @@ async def download_shared_file(
     db.commit()
 
     # Stream file
-@router.get("/storage/usage")
-async def get_storage_usage(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database)
-):
-    """Get user's storage usage statistics"""
+    return FileResponse(
+        path=file.storage_path,
+        media_type=file.mime_type or "video/mp4",
+        filename=file.original_filename or file.filename
+    )

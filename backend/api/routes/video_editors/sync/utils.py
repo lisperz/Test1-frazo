@@ -5,13 +5,20 @@ Utility functions for pro_sync_api routes
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import logging
+import os
+import shutil
+from fastapi import UploadFile
 
 logger = logging.getLogger(__name__)
 
 
+class SegmentValidationError:
+    segment_index: int
+    error_type: str
+    error_message: str
 
 
-def validate_segments(segments: List[dict], video_duration: float, max_segments: int) -> Optional[List[SegmentValidationError]]:
+def validate_segments(segments: List[dict], video_duration: float, max_segments: int) -> Optional[List[Dict[str, Any]]]:
     """
     Validate segment configurations
 
@@ -99,4 +106,3 @@ async def save_uploaded_file(upload_file: UploadFile, destination: str) -> str:
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise
-

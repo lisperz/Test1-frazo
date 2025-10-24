@@ -14,74 +14,10 @@ from backend.models.job import VideoJob, JobStatus
 from backend.auth.dependencies import get_current_user
 from backend.auth.jwt_handler import JWTHandler
 from sqlalchemy import func
-
-    from backend.models.job import VideoJob, JobStatus
-    from datetime import timedelta
-
-    # Calculate stats for the last 30 days
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-
-    total_jobs = db.query(VideoJob).filter(
-        VideoJob.user_id == current_user.id
-    ).count()
-
-    jobs_last_30_days = db.query(VideoJob).filter(
-        VideoJob.user_id == current_user.id,
-        VideoJob.created_at >= thirty_days_ago
-    ).count()
-
-    completed_jobs = db.query(VideoJob).filter(
-        VideoJob.user_id == current_user.id,
-        VideoJob.status == JobStatus.COMPLETED.value
-    ).count()
-
-    failed_jobs = db.query(VideoJob).filter(
-        VideoJob.user_id == current_user.id,
-        VideoJob.status == JobStatus.FAILED.value
-    ).count()
-
-    total_credits_used = db.query(CreditTransaction).filter(
-        CreditTransaction.user_id == current_user.id,
-        CreditTransaction.transaction_type == "usage"
-    ).count()
-
-    credits_used_last_30_days = db.query(CreditTransaction).filter(
-        CreditTransaction.user_id == current_user.id,
-        CreditTransaction.transaction_type == "usage",
-        CreditTransaction.created_at >= thirty_days_ago
-    ).count()
-
-    return {
-        "total_jobs": total_jobs,
-        "jobs_last_30_days": jobs_last_30_days,
-        "completed_jobs": completed_jobs,
-        "failed_jobs": failed_jobs,
-        "success_rate": (completed_jobs / total_jobs * 100) if total_jobs > 0 else 0,
-        "total_credits_used": abs(total_credits_used),
-        "credits_used_last_30_days": abs(credits_used_last_30_days),
-        "current_credits": current_user.credits_balance,
-        "subscription_tier": current_user.subscription_tier.display_name
-    }
-
-    from backend.models.job import VideoJob, JobStatus
-    active_jobs = db.query(VideoJob).filter(
-        VideoJob.user_id == current_user.id,
-        VideoJob.status.in_([JobStatus.QUEUED.value, JobStatus.PROCESSING.value])
-    ).count()
-
-    if active_jobs > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot delete account with {active_jobs} active jobs. Please wait for completion or cancel them."
-        )
-
-    # Mark account as deleted instead of actually deleting
-    current_user.status = "deleted"
-    current_user.email = f"deleted_{current_user.id}@deleted.local"
-
-    db.commit()
-
-    return {"message": "Account deleted successfully"}
+from .schemas import (
+    UserResponse, UserProfile, UserStatsResponse,
+    APIKeyResponse, APIKeyCreate, CreditTransactionResponse
+)
 
 router = APIRouter()
 

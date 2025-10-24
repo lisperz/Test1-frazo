@@ -1,5 +1,5 @@
 """
-Ghostcut routes
+Ghostcut routes - Part 1: Render and status endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,15 +21,40 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
-        from backend.workers.celery_app import app
-        app.control.revoke(job.celery_task_id, terminate=True)
-
-    logger.info(f"Cancelled GhostCut job {job_id} for user {current_user.id}")
-
-    return {"message": "Job cancelled successfully"}
-
-
 router = APIRouter()
+
+
+# Schema definitions
+class BoundingBox(BaseModel):
+    rect: List[float] = Field(..., min_items=4, max_items=4)
+    start: float = Field(..., ge=0)
+    end: float
+
+
+class GhostCutRenderRequest(BaseModel):
+    video_id: str
+    language: str = "en"
+    erasures: List[BoundingBox] = Field(..., min_items=1)
+    protected_areas: Optional[List[BoundingBox]] = None
+    text_areas: Optional[List[BoundingBox]] = None
+    auto_detect_text: Optional[bool] = False
+
+
+class GhostCutJobResponse(BaseModel):
+    job_id: str
+    status: str
+    progress: Optional[int] = None
+    message: Optional[str] = None
+    output_url: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+
+
+def calculate_credits_estimate(request: GhostCutRenderRequest) -> int:
+    """Calculate estimated credits for a GhostCut job"""
+    base_credits = 10
+    area_credits = len(request.erasures) * 5
+    return base_credits + area_credits
 
 
 @router.post("/render", response_model=GhostCutJobResponse)
@@ -132,6 +157,7 @@ async def submit_ghostcut_job(
         created_at=job.created_at
     )
 
+
 @router.get("/jobs/{job_id}", response_model=GhostCutJobResponse)
 async def get_ghostcut_job_status(
     job_id: str,
@@ -185,4 +211,3 @@ async def get_ghostcut_job_status(
         error=job.error_message,
         created_at=job.created_at
     )
-

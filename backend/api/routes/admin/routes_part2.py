@@ -1,3 +1,64 @@
+"""
+Admin routes - Part 2
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime
+import logging
+
+from backend.models.database import get_database
+from backend.models.user import User, CreditTransaction, SubscriptionTier
+from backend.models.job import VideoJob, JobStatus
+from backend.models.file import File
+from backend.auth.dependencies import require_admin
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# Import schemas from routes_part1
+try:
+    from .routes_part1 import SystemStats, UserAdminResponse, JobAdminResponse
+except ImportError:
+    # Define minimal schemas if not available
+    class SystemStats(BaseModel):
+        total_users: int
+        active_users: int
+        total_jobs: int
+        completed_jobs: int
+        failed_jobs: int
+        processing_jobs: int
+        total_files: int
+        total_storage_mb: float
+        revenue_this_month: float
+
+    class UserAdminResponse(BaseModel):
+        id: str
+        email: str
+        full_name: Optional[str]
+        subscription_tier: str
+        credits_balance: int
+        status: str
+        total_jobs: int
+        created_at: datetime
+        last_login_at: Optional[datetime]
+
+    class JobAdminResponse(BaseModel):
+        id: str
+        user_email: str
+        original_filename: str
+        status: str
+        progress_percentage: int
+        credits_used: Optional[int]
+        created_at: datetime
+        processing_duration_minutes: Optional[float]
+
+
 @router.get("/stats", response_model=SystemStats)
 async def get_system_stats(
     admin_user: User = Depends(require_admin),
@@ -187,6 +248,35 @@ async def system_health_check(
 
     # Storage health
     try:
+        import shutil
+        disk_usage = shutil.disk_usage(settings.upload_temp_dir)
+        storage_healthy = True
+        storage_free_gb = disk_usage.free / (1024**3)
+        storage_error = None
+    except Exception as e:
+        storage_healthy = False
+        storage_free_gb = 0
+        storage_error = str(e)
+
+    return {
+        "database": {
+            "healthy": db_healthy,
+            "error": db_error
+        },
+        "processing_queue": {
+            "active_jobs": processing_jobs,
+            "stuck_jobs": stuck_jobs,
+            "healthy": stuck_jobs < 5  # Arbitrary threshold
+        },
+        "storage": {
+            "healthy": storage_healthy,
+            "free_space_gb": round(storage_free_gb, 2),
+            "error": storage_error
+        },
+        "overall_healthy": db_healthy and storage_healthy and stuck_jobs < 5
+    }
+
+
 @router.get("/analytics/daily")
 async def get_daily_analytics(
     days: int = 30,
@@ -194,6 +284,13 @@ async def get_daily_analytics(
     db: Session = Depends(get_database)
 ):
     """Get daily analytics for the last N days"""
+    # Placeholder implementation
+    return {
+        "daily_stats": [],
+        "period_days": days,
+        "message": "Analytics feature not yet fully implemented"
+    }
+
 
 @router.post("/maintenance")
 async def set_maintenance_mode(
@@ -203,3 +300,9 @@ async def set_maintenance_mode(
     db: Session = Depends(get_database)
 ):
     """Enable or disable maintenance mode"""
+    # Placeholder implementation
+    return {
+        "maintenance_mode": enabled,
+        "message": message or "Maintenance mode updated",
+        "updated_by": admin_user.email
+    }

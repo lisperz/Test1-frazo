@@ -15,6 +15,7 @@ from .schemas import (
     UserRegister, UserLogin, TokenRefresh, PasswordReset,
     PasswordResetConfirm, EmailVerification, UserResponse
 )
+from .password_handlers import _create_user_session, _build_user_response
 
 
 async def handle_user_registration(

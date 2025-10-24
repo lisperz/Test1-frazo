@@ -1,3 +1,20 @@
+"""
+Users routes - Part 2
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+
+from backend.models.database import get_database
+from backend.models.user import User, APIKey, SubscriptionTier
+from backend.models.job import VideoJob, JobStatus
+from backend.auth.dependencies import get_current_user
+from .schemas import SubscriptionTierResponse
+
+router = APIRouter()
+
+
 @router.delete("/me/api-keys/{key_id}")
 async def delete_api_key(
     key_id: int,

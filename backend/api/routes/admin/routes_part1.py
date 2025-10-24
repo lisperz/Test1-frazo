@@ -1,5 +1,5 @@
 """
-Admin routes
+Admin routes - Part 1
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +8,7 @@ from sqlalchemy import func
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+import uuid
 
 from backend.models.database import get_database
 from backend.models.user import User, CreditTransaction, SubscriptionTier
@@ -16,7 +17,56 @@ from backend.models.file import File
 from backend.auth.dependencies import require_admin
 from backend.config import settings
 
-    import uuid
+router = APIRouter()
+
+
+# Import schemas
+try:
+    from .schemas import SystemStats, UserAdminResponse, JobAdminResponse
+except ImportError:
+    # Define minimal schemas if not available
+    class SystemStats(BaseModel):
+        total_users: int
+        active_users: int
+        total_jobs: int
+        completed_jobs: int
+        failed_jobs: int
+        processing_jobs: int
+        total_files: int
+        total_storage_mb: float
+        revenue_this_month: float
+
+    class UserAdminResponse(BaseModel):
+        id: str
+        email: str
+        full_name: Optional[str]
+        subscription_tier: str
+        credits_balance: int
+        status: str
+        total_jobs: int
+        created_at: datetime
+        last_login_at: Optional[datetime]
+
+    class JobAdminResponse(BaseModel):
+        id: str
+        user_email: str
+        original_filename: str
+        status: str
+        progress_percentage: int
+        credits_used: Optional[int]
+        created_at: datetime
+        processing_duration_minutes: Optional[float]
+
+
+@router.put("/users/{user_id}/credits")
+async def adjust_user_credits(
+    user_id: str,
+    credits_adjustment: int,
+    reason: str,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Adjust user's credit balance"""
 
     try:
         user_uuid = uuid.UUID(user_id)
@@ -61,7 +111,16 @@ from backend.config import settings
         "new_balance": user.credits_balance
     }
 
-    import uuid
+
+@router.put("/users/{user_id}/status")
+async def update_user_status(
+    user_id: str,
+    new_status: str,
+    reason: str,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Update user account status"""
 
     valid_statuses = ["active", "suspended", "deleted"]
     if new_status not in valid_statuses:
@@ -110,7 +169,15 @@ from backend.config import settings
         "reason": reason
     }
 
-    import uuid
+
+@router.post("/jobs/{job_id}/cancel")
+async def admin_cancel_job(
+    job_id: str,
+    reason: str,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Cancel a job as admin"""
 
     try:
         job_uuid = uuid.UUID(job_id)
@@ -155,6 +222,37 @@ from backend.config import settings
 
     return {"message": f"Job cancelled by admin: {reason}"}
 
+
+@router.get("/system/health")
+async def system_health_check(
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Get detailed system health information"""
+
+    # Database health
+    try:
+        db.execute("SELECT 1")
+        db_healthy = True
+        db_error = None
+    except Exception as e:
+        db_healthy = False
+        db_error = str(e)
+
+    # Check processing queue health
+    processing_jobs = db.query(VideoJob).filter(
+        VideoJob.status == JobStatus.PROCESSING.value
+    ).count()
+
+    # Check for stuck jobs (processing for > 1 hour)
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    stuck_jobs = db.query(VideoJob).filter(
+        VideoJob.status == JobStatus.PROCESSING.value,
+        VideoJob.started_at < one_hour_ago
+    ).count()
+
+    # Storage health
+    try:
         import shutil
         disk_usage = shutil.disk_usage(settings.upload_temp_dir)
         storage_healthy = True
@@ -182,6 +280,15 @@ from backend.config import settings
         },
         "overall_healthy": db_healthy and storage_healthy and stuck_jobs < 5
     }
+
+
+@router.get("/analytics/daily")
+async def get_daily_analytics(
+    days: int = 30,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Get daily analytics for the last N days"""
 
     from sqlalchemy import text
 
@@ -220,6 +327,16 @@ from backend.config import settings
         "daily_stats": daily_stats,
         "period_days": days
     }
+
+
+@router.post("/maintenance")
+async def set_maintenance_mode(
+    enabled: bool,
+    message: Optional[str] = None,
+    admin_user: User = Depends(require_admin),
+    db: Session = Depends(get_database)
+):
+    """Enable or disable maintenance mode"""
 
     from backend.models.user import SystemSettings
 
@@ -270,6 +387,3 @@ from backend.config import settings
         "message": message,
         "updated_by": admin_user.email
     }
-
-router = APIRouter()
-

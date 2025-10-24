@@ -1,23 +1,24 @@
 """
-Ghostcut routes
+Ghostcut routes - Part 2: Job management endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
 import uuid
-import os
 import logging
 
 from backend.models.database import get_database
-from backend.models.user import User, CreditTransaction
+from backend.models.user import User
 from backend.models.job import VideoJob, JobStatus
-from backend.models.file import File
 from backend.auth.dependencies import get_current_user
-from backend.workers.ghostcut_tasks import process_ghostcut_video
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_ghostcut_job(
     job_id: str,
@@ -60,8 +61,16 @@ async def cancel_ghostcut_job(
     job.error_message = "Job cancelled by user"
     db.commit()
 
-    # TODO: Cancel Celery task if running
+    # Cancel Celery task if running
     if job.celery_task_id:
+        from backend.workers.celery_app import app
+        app.control.revoke(job.celery_task_id, terminate=True)
+
+    logger.info(f"Cancelled GhostCut job {job_id} for user {current_user.id}")
+
+    return {"message": "Job cancelled successfully"}
+
+
 @router.get("/jobs", response_model=dict)
 async def list_ghostcut_jobs(
     page: int = 1,

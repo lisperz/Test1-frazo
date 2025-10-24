@@ -23,6 +23,7 @@ import VideoInpaintingPage from './pages/video/VideoInpaintingPage';
 import SimpleVideoInpaintingPage from './pages/video/SimpleVideoInpaintingPage';
 import TranslationsPage from './pages/video/TranslationsPage';
 import ProVideoEditorPage from './pages/video/ProVideoEditorPage';
+import VideoEditorPage from './pages/video/VideoEditorPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -208,7 +209,7 @@ const App: React.FC = () => {
           path="/editor"
           element={
             <ProtectedRoute>
-              <VideoInpaintingPage />
+              <VideoEditorPage />
             </ProtectedRoute>
           }
         />

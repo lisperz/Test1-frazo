@@ -1,3 +1,30 @@
+"""
+Jobs management routes - Part 3
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+import uuid
+import logging
+
+from backend.models.database import get_database
+from backend.models.user import User
+from backend.models.job import VideoJob, JobStatus
+from backend.auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# Import ProcessingTemplate if available
+try:
+    from backend.models.job import ProcessingTemplate
+except ImportError:
+    ProcessingTemplate = None
+
+
 @router.post("/{job_id}/retry")
 async def retry_job(
     job_id: str,

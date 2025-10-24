@@ -1,5 +1,5 @@
 """
-Files routes
+Files routes - Part 1
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File as FastAPIFile
@@ -7,11 +7,13 @@ from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import os
 import mimetypes
 import shutil
+import secrets
+import logging
 
 from backend.models.database import get_database
 from backend.models.user import User
@@ -19,7 +21,73 @@ from backend.models.file import File, FileAccessLog
 from backend.auth.dependencies import get_current_user
 from backend.config import settings
 
-    import secrets
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# Import or define schemas
+try:
+    from .schemas import FileUploadResponse, FileListResponse, FileResponse as FileResponseSchema
+    FileResponse = FileResponseSchema
+except ImportError:
+    class FileUploadResponse(BaseModel):
+        file_id: str
+        url: str
+        message: str
+
+    class FileResponse(BaseModel):
+        id: str
+        filename: str
+        original_filename: str
+        file_type: str
+        mime_type: Optional[str]
+        file_size_mb: float
+        is_public: bool
+        download_count: int
+        created_at: datetime
+        expires_at: Optional[datetime]
+
+    class FileListResponse(BaseModel):
+        files: List[FileResponse]
+        total: int
+        page: int
+        page_size: int
+
+
+@router.post("/{file_id}/share")
+async def share_file(
+    file_id: str,
+    expires_hours: int = 24,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_database)
+):
+    """Generate a public share link for a file"""
+
+    try:
+        file_uuid = uuid.UUID(file_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file ID format"
+        )
+
+    file = db.query(File).filter(
+        File.id == file_uuid,
+        File.user_id == current_user.id
+    ).first()
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+
+    # Check limits on sharing (optional)
+    if expires_hours > 168:  # Max 7 days
+        expires_hours = 168
+
+    # Generate share token
     share_token = secrets.token_urlsafe(32)
 
     # Store share token in file metadata
@@ -38,6 +106,14 @@ from backend.config import settings
         "expires_at": file.metadata["share_expires"],
         "message": f"File will be publicly accessible for {expires_hours} hours"
     }
+
+
+@router.get("/storage/usage")
+async def get_storage_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_database)
+):
+    """Get user's storage usage statistics"""
 
     from backend.models.file import UserStorageQuota
 
@@ -78,14 +154,6 @@ from backend.config import settings
         "is_over_quota": quota.is_over_quota,
         "files_count": db.query(File).filter(File.user_id == current_user.id).count()
     }
-
-# Import required modules
-import logging
-from datetime import timedelta
-
-logger = logging.getLogger(__name__)
-
-router = APIRouter()
 
 
 @router.post("/upload", response_model=FileUploadResponse)

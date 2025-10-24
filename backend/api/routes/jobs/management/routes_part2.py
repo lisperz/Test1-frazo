@@ -1,25 +1,37 @@
-@router.post("/direct-process", response_model=DirectProcessResponse)
-async def direct_process_video(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = FastAPIFile(...),
-    display_name: Optional[str] = Form(None),
-    effects: Optional[str] = Form(None),  # JSON string of effects data
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database)
-):
-    """
-    Process video IMMEDIATELY without Celery queue
-    Video is sent to GhostCut API instantly
-    """
+"""
+Jobs management routes - Part 2
+"""
 
-    # BASIC DEBUG - This should ALWAYS appear when function is called
-    logger.info("🟢 FUNCTION START - direct_process_video called")
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Form, BackgroundTasks
+from sqlalchemy.orm import Session
+from typing import Optional, List
+import datetime
+import uuid
+import os
+import shutil
+import logging
 
-    logger.info("🚀 DIRECT PROCESS ENDPOINT CALLED!")
-    logger.info(f"📄 File: {file.filename if file else 'No file'}")
-    logger.info(f"📊 Effects: {effects}")
+from backend.models.database import get_database
+from backend.models.user import User
+from backend.models.file import File, FileType
+from backend.models.job import VideoJob, JobStatus
+from backend.auth.dependencies import get_current_user
+from backend.config import settings
 
-    # Debug - write to file immediately when endpoint is called
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# Import from routes_part1
+from .routes_part1 import (
+    DirectProcessResponse,
+    BatchProcessResponse,
+    process_video_immediately,
+    check_ghostcut_status_async
+)
+
+
 @router.post("/batch-process", response_model=BatchProcessResponse)
 async def batch_process_videos(
     background_tasks: BackgroundTasks,
