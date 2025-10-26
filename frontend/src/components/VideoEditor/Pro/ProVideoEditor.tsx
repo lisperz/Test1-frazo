@@ -542,10 +542,23 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
             const newStartTime = clampTime(newTime - segmentDuration / 2, duration - segmentDuration);
             const newEndTime = newStartTime + segmentDuration;
 
-            // Move segment without changing duration - audio times don't change
+            // Calculate how much the segment moved
+            const segmentTimeShift = newStartTime - segment.startTime;
+
+            // Move segment and shift audio times by the same amount
             updateSegment(effectId, {
               startTime: newStartTime,
-              endTime: newEndTime
+              endTime: newEndTime,
+              audioInput: {
+                ...segment.audioInput,
+                // Shift audio times to stay in sync with segment
+                startTime: segment.audioInput.startTime !== undefined
+                  ? Math.max(0, segment.audioInput.startTime + segmentTimeShift)
+                  : undefined,
+                endTime: segment.audioInput.endTime !== undefined
+                  ? Math.max(0, segment.audioInput.endTime + segmentTimeShift)
+                  : undefined,
+              }
             });
           }
         }
