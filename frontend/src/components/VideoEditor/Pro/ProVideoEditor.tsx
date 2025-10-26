@@ -82,8 +82,19 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
   const [isSegmentDialogOpen, setIsSegmentDialogOpen] = useState(false);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
 
-  // Get segments store
-  const { segments, setVideoFile: setStoreVideoFile, getSegmentCount } = useSegmentsStore();
+  // Get segments store with undo/redo
+  const {
+    segments,
+    setVideoFile: setStoreVideoFile,
+    getSegmentCount,
+    deleteSegment,
+    updateSegment,
+    currentSegmentId,
+    undo: undoSegment,
+    redo: redoSegment,
+    canUndo: canUndoSegment,
+    canRedo: canRedoSegment,
+  } = useSegmentsStore();
 
   // Get all state and actions from centralized store
   const {
@@ -153,27 +164,65 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     setTimelineEffects([...syncedTimelineEffects, ...segmentEffects]);
   }, [effects, segments, duration]); // Sync whenever effects, segments, or duration changes
 
-  // Keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo and delete
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Handle undo/redo shortcuts (Ctrl+Z / Ctrl+Y)
       if ((event.ctrlKey || event.metaKey)) {
         if (event.key === 'z' && !event.shiftKey) {
           event.preventDefault();
-          if (canUndo()) {
+          // Try to undo segments first, then effects
+          if (canUndoSegment()) {
+            console.log('🔄 Undoing segment operation');
+            undoSegment();
+          } else if (canUndo()) {
+            console.log('🔄 Undoing effect operation');
             undo();
           }
         } else if ((event.key === 'y') || (event.key === 'z' && event.shiftKey)) {
           event.preventDefault();
-          if (canRedo()) {
+          // Try to redo segments first, then effects
+          if (canRedoSegment()) {
+            console.log('🔄 Redoing segment operation');
+            redoSegment();
+          } else if (canRedo()) {
+            console.log('🔄 Redoing effect operation');
             redo();
           }
+        }
+      }
+
+      // Handle Delete key for segments and effects
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Check if user is typing in an input field
+        const target = event.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          return; // Don't intercept delete in input fields
+        }
+
+        event.preventDefault();
+
+        // Delete currently selected segment instantly (no confirmation)
+        if (currentSegmentId) {
+          console.log('🗑️ Deleting segment via keyboard:', currentSegmentId);
+          deleteSegment(currentSegmentId);
+        }
+        // Delete currently editing effect instantly
+        else if (editingEffectId) {
+          console.log('🗑️ Deleting effect via keyboard:', editingEffectId);
+          deleteEffect(editingEffectId);
+          setEditingEffectId(null);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, canUndo, canRedo]);
+  }, [
+    undo, redo, canUndo, canRedo,
+    undoSegment, redoSegment, canUndoSegment, canRedoSegment,
+    deleteSegment, currentSegmentId, editingEffectId, deleteEffect
+  ]);
 
   // Initialize video in segments store when component mounts
   useEffect(() => {
@@ -432,10 +481,13 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(effectId);
-    
+
+    // Check if this is a segment or an effect
+    const isSegment = segments.some(seg => seg.id === effectId);
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!frameStripRef.current) return;
-      
+
       // Use centralized timeline interaction for precise calculation
       const newTime = handleTimelineInteraction(
         moveEvent,
@@ -443,56 +495,133 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
         duration,
         timelineZoom
       );
-      
-      // Update the actual effect in store - timeline will auto-sync
-      const effect = effects.find(e => e.id === effectId);
-      if (effect) {
-        if (type === 'start') {
-          const maxStartTime = effect.endTime - 0.1; // Minimum 0.1s duration
-          const newStartTime = Math.min(newTime, maxStartTime);
-          updateEffect(effectId, { startTime: newStartTime });
-        } else if (type === 'end') {
-          const minEndTime = effect.startTime + 0.1; // Minimum 0.1s duration
-          const newEndTime = Math.max(minEndTime, newTime);
-          updateEffect(effectId, { endTime: clampTime(newEndTime, duration) });
-        } else if (type === 'move') {
-          const effectDuration = effect.endTime - effect.startTime;
-          // Center the drag on the mouse position
-          const newStartTime = clampTime(newTime - effectDuration / 2, duration - effectDuration);
-          const newEndTime = newStartTime + effectDuration;
-          updateEffect(effectId, {
-            startTime: newStartTime,
-            endTime: newEndTime
-          });
+
+      if (isSegment) {
+        // Handle segment resizing - update both segment and audio times
+        const segment = segments.find(seg => seg.id === effectId);
+        if (segment) {
+          if (type === 'start') {
+            const maxStartTime = segment.endTime - 0.5; // Minimum 0.5s duration for segments
+            const newStartTime = Math.max(0, Math.min(newTime, maxStartTime));
+
+            // Calculate audio duration change
+            const segmentDurationChange = newStartTime - segment.startTime;
+
+            // Update segment with new start time and adjusted audio times
+            updateSegment(effectId, {
+              startTime: newStartTime,
+              audioInput: {
+                ...segment.audioInput,
+                // Keep audio in sync with segment
+                startTime: segment.audioInput.startTime !== undefined
+                  ? Math.max(0, segment.audioInput.startTime + segmentDurationChange)
+                  : undefined,
+              }
+            });
+          } else if (type === 'end') {
+            const minEndTime = segment.startTime + 0.5; // Minimum 0.5s duration for segments
+            const newEndTime = Math.min(duration, Math.max(minEndTime, newTime));
+
+            // Calculate audio duration change
+            const segmentDurationChange = newEndTime - segment.endTime;
+
+            // Update segment with new end time and adjusted audio times
+            updateSegment(effectId, {
+              endTime: newEndTime,
+              audioInput: {
+                ...segment.audioInput,
+                // Keep audio in sync with segment
+                endTime: segment.audioInput.endTime !== undefined
+                  ? Math.max(0, segment.audioInput.endTime + segmentDurationChange)
+                  : undefined,
+              }
+            });
+          } else if (type === 'move') {
+            const segmentDuration = segment.endTime - segment.startTime;
+            // Center the drag on the mouse position
+            const newStartTime = clampTime(newTime - segmentDuration / 2, duration - segmentDuration);
+            const newEndTime = newStartTime + segmentDuration;
+
+            // Move segment without changing duration - audio times don't change
+            updateSegment(effectId, {
+              startTime: newStartTime,
+              endTime: newEndTime
+            });
+          }
+        }
+      } else {
+        // Handle effect (annotation) resizing - original logic
+        const effect = effects.find(e => e.id === effectId);
+        if (effect) {
+          if (type === 'start') {
+            const maxStartTime = effect.endTime - 0.1; // Minimum 0.1s duration
+            const newStartTime = Math.min(newTime, maxStartTime);
+            updateEffect(effectId, { startTime: newStartTime });
+          } else if (type === 'end') {
+            const minEndTime = effect.startTime + 0.1; // Minimum 0.1s duration
+            const newEndTime = Math.max(minEndTime, newTime);
+            updateEffect(effectId, { endTime: clampTime(newEndTime, duration) });
+          } else if (type === 'move') {
+            const effectDuration = effect.endTime - effect.startTime;
+            // Center the drag on the mouse position
+            const newStartTime = clampTime(newTime - effectDuration / 2, duration - effectDuration);
+            const newEndTime = newStartTime + effectDuration;
+            updateEffect(effectId, {
+              startTime: newStartTime,
+              endTime: newEndTime
+            });
+          }
         }
       }
     };
-    
+
     const handleMouseUp = () => {
       setIsDragging(null);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleDeleteTimelineEffect = (id: string) => {
-    deleteEffect(id);
+    // Check if this is a segment or an effect
+    const isSegment = segments.some(seg => seg.id === id);
+
+    if (isSegment) {
+      // Delete segment instantly without confirmation (like effects)
+      deleteSegment(id);
+      console.log('🗑️ Deleted segment from timeline:', id);
+    } else {
+      // Delete effect instantly
+      deleteEffect(id);
+      console.log('🗑️ Deleted effect from timeline:', id);
+    }
     // Timeline effects will be automatically synchronized via useEffect
   };
 
 
   const handleEffectClick = (effectId: string, e: React.MouseEvent) => {
     // Only handle clicks that are not on drag handles or delete button
-    if ((e.target as HTMLElement).closest('[data-drag-handle]') || 
+    if ((e.target as HTMLElement).closest('[data-drag-handle]') ||
         (e.target as HTMLElement).closest('button')) {
       return;
     }
-    
-    setEditingEffectId(effectId);
-    setIsDrawingMode(false); // Exit any current drawing mode
+
+    // Check if this is a segment (from segments store)
+    const isSegment = segments.some(seg => seg.id === effectId);
+
+    if (isSegment) {
+      // This is a segment - set it as the current segment for deletion
+      const { setCurrentSegment } = useSegmentsStore.getState();
+      setCurrentSegment(effectId);
+      console.log('📌 Selected segment for keyboard operations:', effectId);
+    } else {
+      // This is an effect - set it for editing
+      setEditingEffectId(effectId);
+      setIsDrawingMode(false); // Exit any current drawing mode
+    }
   };
 
   const handleStopEditing = () => {
@@ -1363,33 +1492,47 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
             flexWrap: 'wrap',
             minHeight: '50px' // Set minimum height for compactness
           }}>
-            {/* Undo/Redo Controls */}
-            <IconButton 
-              onClick={undo}
-              disabled={!canUndo()}
-              size="small"
-              sx={{
-                color: canUndo() ? '#333' : '#ccc',
-                '&:hover': {
-                  bgcolor: canUndo() ? 'rgba(0,0,0,0.08)' : 'transparent'
+            {/* Undo/Redo Controls - Works for both segments and effects */}
+            <IconButton
+              onClick={() => {
+                // Prioritize segment undo, then effect undo
+                if (canUndoSegment()) {
+                  undoSegment();
+                } else if (canUndo()) {
+                  undo();
                 }
               }}
-              title="Undo (Ctrl+Z)"
+              disabled={!canUndoSegment() && !canUndo()}
+              size="small"
+              sx={{
+                color: (canUndoSegment() || canUndo()) ? '#333' : '#ccc',
+                '&:hover': {
+                  bgcolor: (canUndoSegment() || canUndo()) ? 'rgba(0,0,0,0.08)' : 'transparent'
+                }
+              }}
+              title="Undo (Ctrl+Z) - Segments & Effects"
             >
               <Undo />
             </IconButton>
-            
-            <IconButton 
-              onClick={redo}
-              disabled={!canRedo()}
-              size="small"
-              sx={{
-                color: canRedo() ? '#333' : '#ccc',
-                '&:hover': {
-                  bgcolor: canRedo() ? 'rgba(0,0,0,0.08)' : 'transparent'
+
+            <IconButton
+              onClick={() => {
+                // Prioritize segment redo, then effect redo
+                if (canRedoSegment()) {
+                  redoSegment();
+                } else if (canRedo()) {
+                  redo();
                 }
               }}
-              title="Redo (Ctrl+Y)"
+              disabled={!canRedoSegment() && !canRedo()}
+              size="small"
+              sx={{
+                color: (canRedoSegment() || canRedo()) ? '#333' : '#ccc',
+                '&:hover': {
+                  bgcolor: (canRedoSegment() || canRedo()) ? 'rgba(0,0,0,0.08)' : 'transparent'
+                }
+              }}
+              title="Redo (Ctrl+Y) - Segments & Effects"
             >
               <Redo />
             </IconButton>
@@ -2052,13 +2195,19 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
               {timelineEffects.map((effect, index) => {
                   // Each effect gets its own row
                   const trackTop = index * 40 + 5; // 40px spacing between rows, 5px top margin
-                
+
                   // Use the same calculation as timeline indicator for perfect sync
                   const trackWidth = 100; // Full width percentage
                   // Direct percentage values without additional division
                   const effectLeft = effect.startFrame;
                   const effectWidth = effect.endFrame - effect.startFrame;
-                
+
+                  // Check if this is a segment and if it's selected
+                  const isSegment = segments.some(seg => seg.id === effect.id);
+                  const isSelected = isSegment
+                    ? currentSegmentId === effect.id
+                    : editingEffectId === effect.id;
+
                 return (
                   <Box
                     key={effect.id}
@@ -2074,10 +2223,10 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       px: 1,
-                      opacity: editingEffectId === effect.id ? 1 : 0.85,
+                      opacity: isSelected ? 1 : 0.85,
                       zIndex: 15,
-                      border: editingEffectId === effect.id ? '2px solid #1890ff' : '1px solid rgba(255,255,255,0.3)',
-                      boxShadow: editingEffectId === effect.id ? '0 2px 8px rgba(24,144,255,0.4)' : '0 1px 3px rgba(0,0,0,0.1)',
+                      border: isSelected ? '2px solid #1890ff' : '1px solid rgba(255,255,255,0.3)',
+                      boxShadow: isSelected ? '0 2px 8px rgba(24,144,255,0.4)' : '0 1px 3px rgba(0,0,0,0.1)',
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         opacity: 1,
@@ -2104,6 +2253,8 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
                         cursor: 'ew-resize',
                         borderRadius: '2px 0 0 2px',
                         opacity: 0,
+                        zIndex: 20,
+                        pointerEvents: 'auto',
                         transition: 'opacity 0.2s ease',
                         '&:hover': {
                           bgcolor: 'rgba(255,255,255,1)',
@@ -2183,6 +2334,8 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
                         cursor: 'ew-resize',
                         borderRadius: '0 2px 2px 0',
                         opacity: 0,
+                        zIndex: 20,
+                        pointerEvents: 'auto',
                         transition: 'opacity 0.2s ease',
                         '&:hover': {
                           bgcolor: 'rgba(255,255,255,1)',

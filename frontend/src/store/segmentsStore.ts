@@ -29,6 +29,10 @@ interface SegmentsStore {
   videoUrl: string | null;
   uploadedAudioFiles: UploadedAudioFile[];
 
+  // Undo/Redo state
+  history: VideoSegment[][];
+  historyIndex: number;
+
   // Actions - Segment Management
   addSegment: (segment: VideoSegment) => void;
   updateSegment: (id: string, updates: Partial<VideoSegment>) => void;
@@ -45,6 +49,12 @@ interface SegmentsStore {
   getAudioFileByRefId: (refId: string) => UploadedAudioFile | undefined;
   getAllAudioFiles: () => UploadedAudioFile[];
   removeUnusedAudioFiles: () => void;
+
+  // Undo/Redo actions
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
 
   // Validation
   validateSegmentTimes: (
@@ -71,36 +81,59 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
   videoUrl: null,
   uploadedAudioFiles: [],
 
-  // Add a new segment with automatic sorting
+  // Undo/Redo initial state
+  history: [[]],
+  historyIndex: 0,
+
+  // Add a new segment with automatic sorting and history tracking
   addSegment: (segment) => {
     console.log('🔥 STORE: addSegment called with:', segment);
     set((state) => {
       const newSegments = [...state.segments, segment].sort(
         (a, b) => a.startTime - b.startTime
       );
+      const newHistory = [...state.history.slice(0, state.historyIndex + 1), newSegments];
       console.log('🔥 STORE: New segments array:', newSegments);
       console.log('🔥 STORE: Total segments count:', newSegments.length);
-      return { segments: newSegments };
+      return {
+        segments: newSegments,
+        history: newHistory.slice(-50), // Keep last 50 states
+        historyIndex: Math.min(newHistory.length - 1, 49)
+      };
     });
   },
 
-  // Update an existing segment
-  updateSegment: (id, updates) => set((state) => ({
-    segments: state.segments.map((seg) =>
+  // Update an existing segment with history tracking
+  updateSegment: (id, updates) => set((state) => {
+    const newSegments = state.segments.map((seg) =>
       seg.id === id ? { ...seg, ...updates } : seg
-    ),
-  })),
+    );
+    const newHistory = [...state.history.slice(0, state.historyIndex + 1), newSegments];
+    return {
+      segments: newSegments,
+      history: newHistory.slice(-50),
+      historyIndex: Math.min(newHistory.length - 1, 49)
+    };
+  }),
 
-  // Delete a segment
-  deleteSegment: (id) => set((state) => ({
-    segments: state.segments.filter((seg) => seg.id !== id),
-    currentSegmentId: state.currentSegmentId === id ? null : state.currentSegmentId,
-  })),
+  // Delete a segment with history tracking
+  deleteSegment: (id) => set((state) => {
+    const newSegments = state.segments.filter((seg) => seg.id !== id);
+    const newHistory = [...state.history.slice(0, state.historyIndex + 1), newSegments];
+    return {
+      segments: newSegments,
+      currentSegmentId: state.currentSegmentId === id ? null : state.currentSegmentId,
+      history: newHistory.slice(-50),
+      historyIndex: Math.min(newHistory.length - 1, 49)
+    };
+  }),
 
   // Clear all segments
   clearAllSegments: () => set({
     segments: [],
     currentSegmentId: null,
+    history: [[]],
+    historyIndex: 0,
   }),
 
   // Set currently selected segment
@@ -174,6 +207,43 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
         usedRefIds.has(audio.refId)
       ),
     }));
+  },
+
+  // Undo/Redo implementations
+  undo: () => set((state) => {
+    if (state.historyIndex > 0) {
+      const newIndex = state.historyIndex - 1;
+      console.log('⏮️ Undoing segment change. New index:', newIndex);
+      return {
+        segments: [...state.history[newIndex]],
+        historyIndex: newIndex,
+        currentSegmentId: null, // Clear selection on undo
+      };
+    }
+    return state;
+  }),
+
+  redo: () => set((state) => {
+    if (state.historyIndex < state.history.length - 1) {
+      const newIndex = state.historyIndex + 1;
+      console.log('⏭️ Redoing segment change. New index:', newIndex);
+      return {
+        segments: [...state.history[newIndex]],
+        historyIndex: newIndex,
+        currentSegmentId: null, // Clear selection on redo
+      };
+    }
+    return state;
+  }),
+
+  canUndo: () => {
+    const state = get();
+    return state.historyIndex > 0;
+  },
+
+  canRedo: () => {
+    const state = get();
+    return state.historyIndex < state.history.length - 1;
   },
 
   // Validate segment times
