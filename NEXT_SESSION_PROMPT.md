@@ -92,12 +92,12 @@ docker-compose logs -f worker
 
 ---
 
-## 📝 Known External Issues
+## 📝 Recent External Updates
 
 **Sync.so API Audio Quality**:
-- External bug in Sync.so's audio processing causing degraded output quality
-- Reported to Sync.so, awaiting their fix
-- Our service uploads audio correctly with proper request format
+- ✅ **RESOLVED**: Sync.so team fixed the audio processing bug
+- Pro Video Editor now produces high-quality audio output
+- No further action needed on our side
 
 ---
 
