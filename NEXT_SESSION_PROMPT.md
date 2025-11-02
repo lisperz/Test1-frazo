@@ -1,32 +1,19 @@
 # Project Status - Video Text Inpainting Service
 
-**Last Updated**: October 26, 2025
+**Last Updated**: October 27, 2025
 **Current Status**: ✅ **FULLY FUNCTIONAL & PRODUCTION READY**
 
 ---
 
 ## 🎯 Recent Updates
 
-### October 26, 2025 - Session 2: Segment Drag Synchronization Fix
+### October 27, 2025 - Model Upgrade to lipsync-2-pro
 
-**Critical Bug Fix**:
-- ✅ **Segment Middle Drag Audio Sync**: Fixed audio times not updating when dragging segment middle to move position
-  - Issue: When dragging the middle of a segment to move it, audio start/end times stayed fixed while segment moved
-  - Fix: Audio times now shift by the same amount as the segment movement
-  - File: `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` (lines 539-563)
-  - All three drag operations now maintain perfect audio-segment synchronization:
-    - Left handle: adjusts segment & audio start times together
-    - Right handle: adjusts segment & audio end times together
-    - Middle drag: shifts both segment and audio times by same amount
-
-### October 26, 2025 - Session 1: Segment Management Enhancements
-
-**Pro Video Editor - Segment Management Features**:
-- ✅ **Segment Delete via Keyboard**: Delete key (Delete/Backspace) for instant segment deletion
-- ✅ **Segment Undo/Redo**: Full history support with 50-operation limit (Ctrl+Z / Ctrl+Y)
-- ✅ **Segment Resizing**: Draggable left/right handles with automatic audio time synchronization
-- ✅ **Visual Selection Feedback**: Blue border for selected segments
-- ✅ **Drag Handle Improvements**: Fixed pointer-events and z-index for proper interaction
+**Model Enhancement**:
+- ✅ **Upgraded Sync.so Model**: Changed from `lipsync-2` to `lipsync-2-pro` for higher quality lip-sync
+  - File: `backend/services/sync_segments_service.py` (line 111)
+  - All new Pro Video Editor jobs now use the improved model
+  - Requires Docker rebuild after code changes: `docker-compose stop backend worker && docker-compose rm -f backend worker && docker-compose build backend worker && docker-compose up -d backend worker`
 
 ---
 
@@ -47,7 +34,7 @@
 - ✅ Translations page (`/translate`)
 
 **Backend**:
-- ✅ Sync.so API integration (model: sync-2, sync_mode: remap)
+- ✅ Sync.so API integration (model: **lipsync-2-pro**, sync_mode: remap)
 - ✅ GhostCut API integration with separate monitoring for Pro vs regular jobs
 - ✅ Audio deduplication by refId
 - ✅ S3 storage for videos and audio files
@@ -63,8 +50,8 @@ docker-compose up -d
 # Rebuild frontend after code changes
 docker-compose stop frontend && docker-compose rm -f frontend && docker-compose build frontend && docker-compose up -d frontend
 
-# Restart backend workers
-docker-compose restart worker
+# Rebuild backend/worker after code changes (required for Python code updates)
+docker-compose stop backend worker && docker-compose rm -f backend worker && docker-compose build backend worker && docker-compose up -d backend worker
 
 # View logs
 docker-compose logs -f frontend
@@ -81,23 +68,14 @@ docker-compose logs -f worker
 
 ## 📚 Critical Files Reference
 
-**Frontend - Segment Management**:
-- `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` - Main editor with drag logic (lines 539-563)
+**Frontend - Pro Video Editor**:
+- `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` - Main editor with segment drag logic
 - `frontend/src/store/segmentsStore.ts` - Segment store with undo/redo
 
-**Backend - Pro Jobs**:
+**Backend - Sync.so Integration**:
+- `backend/services/sync_segments_service.py` - Sync.so API client (model: lipsync-2-pro)
 - `backend/workers/video_tasks/pro_jobs.py` - Pro job monitoring (Sync.so + GhostCut)
-- `backend/workers/ghostcut_tasks/monitoring.py` - Regular jobs only (excludes Pro jobs)
 - `backend/api/routes/video_editors/sync/routes.py` - Pro sync API endpoint
-
----
-
-## 📝 Recent External Updates
-
-**Sync.so API Audio Quality**:
-- ✅ **RESOLVED**: Sync.so team fixed the audio processing bug
-- Pro Video Editor now produces high-quality audio output
-- No further action needed on our side
 
 ---
 
@@ -105,6 +83,7 @@ docker-compose logs -f worker
 
 **All Features**: ✅ Production Ready
 **Code Quality**: ✅ 100% CLAUDE.md compliant (React v19, TypeScript v5.9, ≤300 lines/file)
-**Last Verified**: October 26, 2025
+**Last Verified**: October 27, 2025
+**Sync.so Model**: lipsync-2-pro (upgraded for higher quality)
 
 **Next Session**: Ready for new features, optimizations, or bug fixes!

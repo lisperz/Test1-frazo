@@ -108,7 +108,7 @@ class SyncSegmentsService:
 
             # Build final API request payload
             payload = {
-                "model": "lipsync-2",  # Recommended model from Sync.so docs
+                "model": "lipsync-2-pro",  # Pro model for higher quality lip-sync
                 "input": input_array,
                 "segments": segments_array,
                 "options": {
