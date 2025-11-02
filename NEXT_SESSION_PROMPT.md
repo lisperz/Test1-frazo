@@ -7,7 +7,18 @@
 
 ## 🎯 Recent Updates
 
-### October 27, 2025 - Model Upgrade to lipsync-2-pro
+### October 27, 2025 - Session 2: UI Enhancement - Dynamic Segment Labels
+
+**UI Improvement**:
+- ✅ **Dynamic Label Positioning**: Segment labels now adapt based on segment width
+  - File: `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` (lines 2283-2383)
+  - **Wide segments (>150px)**: Full label with time range displayed inside
+  - **Medium segments (80-150px)**: Abbreviated "Seg N" label inside
+  - **Narrow segments (<80px)**: Number badge only, full details on hover tooltip
+  - Solves the issue of labels extending beyond small annotation areas
+  - Improves readability across all segment sizes
+
+### October 27, 2025 - Session 1: Model Upgrade to lipsync-2-pro
 
 **Model Enhancement**:
 - ✅ **Upgraded Sync.so Model**: Changed from `lipsync-2` to `lipsync-2-pro` for higher quality lip-sync

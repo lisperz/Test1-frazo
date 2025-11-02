@@ -2280,37 +2280,107 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
                       }}
                     />
 
-                    {/* Label with time range */}
-                    <Box sx={{ 
-                      flex: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <Typography sx={{ 
-                        color: 'white',
-                        fontSize: '9px',
-                        fontWeight: 600,
-                        userSelect: 'none',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-                      }}>
-                        {effect.label}
-                      </Typography>
-                      <Typography sx={{ 
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '8px',
-                        fontFamily: 'monospace',
-                        userSelect: 'none',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-                      }}>
-                        {(() => {
-                          const startTime = (effect.startFrame / 100) * duration;
-                          const endTime = (effect.endFrame / 100) * duration;
-                          return `${formatTime(startTime, true)} - ${formatTime(endTime, true)}`;
-                        })()}
-                      </Typography>
-                    </Box>
+                    {/* Dynamic Label Positioning based on segment width */}
+                    {(() => {
+                      const startTime = (effect.startFrame / 100) * duration;
+                      const endTime = (effect.endFrame / 100) * duration;
+                      const timeLabel = `${formatTime(startTime, true)} - ${formatTime(endTime, true)}`;
+
+                      // Calculate pixel width of segment for label positioning logic
+                      const timelineContainer = frameStripRef.current;
+                      const segmentPixelWidth = timelineContainer
+                        ? (effectWidth / 100) * timelineContainer.offsetWidth
+                        : effectWidth * 10; // Fallback estimate
+
+                      // Dynamic positioning thresholds
+                      const WIDE_THRESHOLD = 150;   // Wide: show full label inside
+                      const MEDIUM_THRESHOLD = 80;  // Medium: show abbreviated inside
+                      // Below MEDIUM_THRESHOLD: show badge only, full text on hover
+
+                      if (segmentPixelWidth > WIDE_THRESHOLD) {
+                        // Wide segment: Full label inside (centered)
+                        return (
+                          <Box sx={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <Typography sx={{
+                              color: 'white',
+                              fontSize: '9px',
+                              fontWeight: 600,
+                              userSelect: 'none',
+                              textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                            }}>
+                              {effect.label}
+                            </Typography>
+                            <Typography sx={{
+                              color: 'rgba(255, 255, 255, 0.9)',
+                              fontSize: '8px',
+                              fontFamily: 'monospace',
+                              userSelect: 'none',
+                              textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                            }}>
+                              {timeLabel}
+                            </Typography>
+                          </Box>
+                        );
+                      } else if (segmentPixelWidth > MEDIUM_THRESHOLD) {
+                        // Medium segment: Abbreviated label inside
+                        const segmentNumber = effect.label.match(/\d+/)?.[0] || index + 1;
+                        return (
+                          <Box sx={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }} title={`${effect.label}\n${timeLabel}`}>
+                            <Typography sx={{
+                              color: 'white',
+                              fontSize: '9px',
+                              fontWeight: 600,
+                              userSelect: 'none',
+                              textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                            }}>
+                              Seg {segmentNumber}
+                            </Typography>
+                          </Box>
+                        );
+                      } else {
+                        // Narrow segment: Number badge only with tooltip
+                        const segmentNumber = effect.label.match(/\d+/)?.[0] || index + 1;
+                        return (
+                          <Box sx={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }} title={`${effect.label}\n${timeLabel}`}>
+                            <Box sx={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: '50%',
+                              bgcolor: 'rgba(255, 255, 255, 0.9)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                            }}>
+                              <Typography sx={{
+                                color: effect.color,
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                userSelect: 'none',
+                              }}>
+                                {segmentNumber}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      }
+                    })()}
 
                     {/* Delete Button - More subtle */}
                     <IconButton
