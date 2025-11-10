@@ -39,6 +39,7 @@ interface SegmentsStore {
   deleteSegment: (id: string) => void;
   clearAllSegments: () => void;
   setCurrentSegment: (id: string | null) => void;
+  splitSegmentAtTime: (splitTime: number) => boolean;
 
   // Actions - Video Management
   setVideoFile: (file: File, url: string, duration: number) => void;
@@ -70,6 +71,8 @@ interface SegmentsStore {
   getSegmentCount: () => number;
   hasOverlap: (startTime: number, endTime: number, excludeId?: string) => boolean;
   getNextSegmentColor: () => string;
+  getSegmentAtTime: (time: number) => VideoSegment | undefined;
+  relabelSegmentsSequentially: () => void;
 }
 
 export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
@@ -92,11 +95,16 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
       const newSegments = [...state.segments, segment].sort(
         (a, b) => a.startTime - b.startTime
       );
-      const newHistory = [...state.history.slice(0, state.historyIndex + 1), newSegments];
-      console.log('🔥 STORE: New segments array:', newSegments);
-      console.log('🔥 STORE: Total segments count:', newSegments.length);
+      // Relabel segments sequentially
+      const relabeledSegments = newSegments.map((seg, index) => ({
+        ...seg,
+        label: `Segment ${index + 1}`,
+      }));
+      const newHistory = [...state.history.slice(0, state.historyIndex + 1), relabeledSegments];
+      console.log('🔥 STORE: New segments array:', relabeledSegments);
+      console.log('🔥 STORE: Total segments count:', relabeledSegments.length);
       return {
-        segments: newSegments,
+        segments: relabeledSegments,
         history: newHistory.slice(-50), // Keep last 50 states
         historyIndex: Math.min(newHistory.length - 1, 49)
       };
@@ -119,9 +127,14 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
   // Delete a segment with history tracking
   deleteSegment: (id) => set((state) => {
     const newSegments = state.segments.filter((seg) => seg.id !== id);
-    const newHistory = [...state.history.slice(0, state.historyIndex + 1), newSegments];
+    // Relabel segments sequentially after deletion
+    const relabeledSegments = newSegments.map((seg, index) => ({
+      ...seg,
+      label: `Segment ${index + 1}`,
+    }));
+    const newHistory = [...state.history.slice(0, state.historyIndex + 1), relabeledSegments];
     return {
-      segments: newSegments,
+      segments: relabeledSegments,
       currentSegmentId: state.currentSegmentId === id ? null : state.currentSegmentId,
       history: newHistory.slice(-50),
       historyIndex: Math.min(newHistory.length - 1, 49)
@@ -336,6 +349,129 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
   getNextSegmentColor: () => {
     const segmentCount = get().segments.length;
     return SEGMENT_COLORS[segmentCount % SEGMENT_COLORS.length];
+  },
+
+  // Get segment at specific time
+  getSegmentAtTime: (time: number) => {
+    return get().segments.find(
+      (seg) => time >= seg.startTime && time <= seg.endTime
+    );
+  },
+
+  // Relabel all segments sequentially based on time order
+  relabelSegmentsSequentially: () => {
+    set((state) => {
+      const sortedSegments = [...state.segments].sort(
+        (a, b) => a.startTime - b.startTime
+      );
+      const relabeledSegments = sortedSegments.map((seg, index) => ({
+        ...seg,
+        label: `Segment ${index + 1}`,
+      }));
+      return { segments: relabeledSegments };
+    });
+  },
+
+  // Split segment at specific time
+  splitSegmentAtTime: (splitTime: number) => {
+    const state = get();
+
+    // Find segment containing the split time
+    const segmentToSplit = state.segments.find(
+      (seg) => splitTime > seg.startTime && splitTime < seg.endTime
+    );
+
+    if (!segmentToSplit) {
+      console.warn('No segment found at time:', splitTime);
+      return false;
+    }
+
+    console.log('✂️ Splitting segment:', segmentToSplit.id, 'at time:', splitTime);
+
+    // Calculate audio time offset for the split
+    const segmentDuration = segmentToSplit.endTime - segmentToSplit.startTime;
+    const splitOffset = splitTime - segmentToSplit.startTime;
+    const splitRatio = splitOffset / segmentDuration;
+
+    // Calculate audio split point
+    let audioSplitTime: number | undefined;
+    if (
+      segmentToSplit.audioInput.startTime !== null &&
+      segmentToSplit.audioInput.startTime !== undefined &&
+      segmentToSplit.audioInput.endTime !== null &&
+      segmentToSplit.audioInput.endTime !== undefined
+    ) {
+      const audioDuration =
+        segmentToSplit.audioInput.endTime - segmentToSplit.audioInput.startTime;
+      audioSplitTime = segmentToSplit.audioInput.startTime + audioDuration * splitRatio;
+    }
+
+    // Create first half segment
+    const firstSegment: VideoSegment = {
+      id: `segment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      startTime: segmentToSplit.startTime,
+      endTime: splitTime,
+      audioInput: {
+        refId: segmentToSplit.audioInput.refId,
+        file: segmentToSplit.audioInput.file,
+        fileName: segmentToSplit.audioInput.fileName,
+        fileSize: segmentToSplit.audioInput.fileSize,
+        url: segmentToSplit.audioInput.url,
+        duration: segmentToSplit.audioInput.duration,
+        startTime: segmentToSplit.audioInput.startTime,
+        endTime: audioSplitTime,
+      },
+      label: 'Segment 1', // Will be relabeled
+      color: segmentToSplit.color,
+      createdAt: Date.now(),
+    };
+
+    // Create second half segment
+    const secondSegment: VideoSegment = {
+      id: `segment-${Date.now() + 1}-${Math.random().toString(36).substr(2, 9)}`,
+      startTime: splitTime,
+      endTime: segmentToSplit.endTime,
+      audioInput: {
+        refId: segmentToSplit.audioInput.refId,
+        file: segmentToSplit.audioInput.file,
+        fileName: segmentToSplit.audioInput.fileName,
+        fileSize: segmentToSplit.audioInput.fileSize,
+        url: segmentToSplit.audioInput.url,
+        duration: segmentToSplit.audioInput.duration,
+        startTime: audioSplitTime,
+        endTime: segmentToSplit.audioInput.endTime,
+      },
+      label: 'Segment 2', // Will be relabeled
+      color: state.getNextSegmentColor(),
+      createdAt: Date.now() + 1,
+    };
+
+    // Remove old segment and add two new segments
+    set((state) => {
+      const newSegments = state.segments
+        .filter((seg) => seg.id !== segmentToSplit.id)
+        .concat([firstSegment, secondSegment])
+        .sort((a, b) => a.startTime - b.startTime);
+
+      // Relabel all segments sequentially
+      const relabeledSegments = newSegments.map((seg, index) => ({
+        ...seg,
+        label: `Segment ${index + 1}`,
+      }));
+
+      const newHistory = [...state.history.slice(0, state.historyIndex + 1), relabeledSegments];
+
+      console.log('✂️ Split complete. New segments:', relabeledSegments.length);
+
+      return {
+        segments: relabeledSegments,
+        history: newHistory.slice(-50),
+        historyIndex: Math.min(newHistory.length - 1, 49),
+        currentSegmentId: null, // Clear selection after split
+      };
+    });
+
+    return true;
   },
 }));
 

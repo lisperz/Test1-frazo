@@ -20,6 +20,7 @@ import {
   VolumeUp,
   VolumeOff,
   Add,
+  ContentCut,
 } from '@mui/icons-material';
 import { useEffectsStore, VideoEffect } from '../../../store/effectsStore';
 import { useNavigate } from 'react-router-dom';
@@ -94,6 +95,8 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     redo: redoSegment,
     canUndo: canUndoSegment,
     canRedo: canRedoSegment,
+    splitSegmentAtTime,
+    getSegmentAtTime,
   } = useSegmentsStore();
 
   // Get all state and actions from centralized store
@@ -122,6 +125,40 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     console.log('Total segments:', segments.length);
     console.log('Segments:', segments);
   }, [segments]);
+
+  // Handle split segment at current playhead position
+  const handleSplitSegment = () => {
+    if (!duration || currentTime <= 0 || currentTime >= duration) {
+      console.warn('Cannot split: invalid time position');
+      return;
+    }
+
+    const segmentAtTime = getSegmentAtTime(currentTime);
+    if (!segmentAtTime) {
+      console.warn('No segment found at current time:', currentTime);
+      return;
+    }
+
+    // Prevent splitting too close to the edges (minimum 0.5s per piece)
+    const minDuration = 0.5;
+    const firstHalfDuration = currentTime - segmentAtTime.startTime;
+    const secondHalfDuration = segmentAtTime.endTime - currentTime;
+
+    if (firstHalfDuration < minDuration || secondHalfDuration < minDuration) {
+      console.warn('Cannot split: resulting segments would be too short (minimum 0.5s)');
+      alert('Cannot split here. Each resulting segment must be at least 0.5 seconds long.');
+      return;
+    }
+
+    console.log('✂️ Splitting segment at time:', currentTime);
+    const success = splitSegmentAtTime(currentTime);
+
+    if (success) {
+      console.log('✂️ Split successful!');
+    } else {
+      console.error('✂️ Split failed');
+    }
+  };
 
   // Synchronize timeline effects with main effects store AND segments
   useEffect(() => {
@@ -164,7 +201,7 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     setTimelineEffects([...syncedTimelineEffects, ...segmentEffects]);
   }, [effects, segments, duration]); // Sync whenever effects, segments, or duration changes
 
-  // Keyboard shortcuts for undo/redo and delete
+  // Keyboard shortcuts for undo/redo, delete, and split
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Handle undo/redo shortcuts (Ctrl+Z / Ctrl+Y)
@@ -189,6 +226,10 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
             console.log('🔄 Redoing effect operation');
             redo();
           }
+        } else if (event.key === 'k' || event.key === 'K') {
+          // Split segment at current time (Ctrl+K)
+          event.preventDefault();
+          handleSplitSegment();
         }
       }
 
@@ -221,7 +262,8 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
   }, [
     undo, redo, canUndo, canRedo,
     undoSegment, redoSegment, canUndoSegment, canRedoSegment,
-    deleteSegment, currentSegmentId, editingEffectId, deleteEffect
+    deleteSegment, currentSegmentId, editingEffectId, deleteEffect,
+    currentTime, splitSegmentAtTime
   ]);
 
   // Initialize video in segments store when component mounts
@@ -1682,6 +1724,33 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
               }}
             >
               Add Segment
+            </Button>
+
+            {/* Split Segment Button - Scissors Icon */}
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleSplitSegment}
+              disabled={!getSegmentAtTime(currentTime)}
+              startIcon={<ContentCut />}
+              title="Split segment at current time (Ctrl+K)"
+              sx={{
+                bgcolor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                fontSize: '13px',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': {
+                  bgcolor: '#7c3aed',
+                },
+                '&:disabled': {
+                  background: '#d9d9d9',
+                  color: '#999'
+                }
+              }}
+            >
+              Split Segment
             </Button>
 
             <Box sx={{ flex: 1 }} />
