@@ -393,20 +393,21 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
     const splitOffset = splitTime - segmentToSplit.startTime;
     const splitRatio = splitOffset / segmentDuration;
 
-    // Calculate audio split point
-    let audioSplitTime: number | undefined;
-    if (
-      segmentToSplit.audioInput.startTime !== null &&
-      segmentToSplit.audioInput.startTime !== undefined &&
-      segmentToSplit.audioInput.endTime !== null &&
-      segmentToSplit.audioInput.endTime !== undefined
-    ) {
-      const audioDuration =
-        segmentToSplit.audioInput.endTime - segmentToSplit.audioInput.startTime;
-      audioSplitTime = segmentToSplit.audioInput.startTime + audioDuration * splitRatio;
-    }
+    // CRITICAL: When splitting, we need to set audio crop times based on video segment times
+    // This ensures each split segment knows which portion of the audio to use
 
-    // Create first half segment
+    // Get the original audio start/end times, or default to segment video times
+    const originalAudioStart = segmentToSplit.audioInput.startTime ?? segmentToSplit.startTime;
+    const originalAudioEnd = segmentToSplit.audioInput.endTime ??
+                             (segmentToSplit.audioInput.duration ?? segmentToSplit.endTime);
+
+    // Calculate the audio duration that was being used by the original segment
+    const audioDuration = originalAudioEnd - originalAudioStart;
+
+    // Calculate where to split the audio based on the split ratio
+    const audioSplitTime = originalAudioStart + audioDuration * splitRatio;
+
+    // Create first half segment - ALWAYS include audio crop times
     const firstSegment: VideoSegment = {
       id: `segment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       startTime: segmentToSplit.startTime,
@@ -418,7 +419,8 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
         fileSize: segmentToSplit.audioInput.fileSize,
         url: segmentToSplit.audioInput.url,
         duration: segmentToSplit.audioInput.duration,
-        startTime: segmentToSplit.audioInput.startTime,
+        // ALWAYS set audio crop times to match video segment times
+        startTime: originalAudioStart,
         endTime: audioSplitTime,
       },
       label: 'Segment 1', // Will be relabeled
@@ -426,7 +428,7 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
       createdAt: Date.now(),
     };
 
-    // Create second half segment
+    // Create second half segment - ALWAYS include audio crop times
     const secondSegment: VideoSegment = {
       id: `segment-${Date.now() + 1}-${Math.random().toString(36).substr(2, 9)}`,
       startTime: splitTime,
@@ -438,8 +440,9 @@ export const useSegmentsStore = create<SegmentsStore>((set, get) => ({
         fileSize: segmentToSplit.audioInput.fileSize,
         url: segmentToSplit.audioInput.url,
         duration: segmentToSplit.audioInput.duration,
+        // ALWAYS set audio crop times to match video segment times
         startTime: audioSplitTime,
-        endTime: segmentToSplit.audioInput.endTime,
+        endTime: originalAudioEnd,
       },
       label: 'Segment 2', // Will be relabeled
       color: state.getNextSegmentColor(),

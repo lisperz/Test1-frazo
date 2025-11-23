@@ -24,10 +24,23 @@ const FrameStrip: React.FC<FrameStripProps> = ({
   onSeek,
   onDragStart,
 }) => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevent click if dragging
+    if (isDragging) return;
+
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = (x / rect.width) * 100;
+    const newTime = (percentage / 100) * duration;
+    onSeek(newTime);
+  };
+
   return (
     <Box
       ref={frameStripRef}
       data-frame-strip
+      onClick={handleClick}
       sx={{
         height: 80,
         bgcolor: 'white',

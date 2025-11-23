@@ -37,7 +37,8 @@ import {
   validateAudioFile,
   formatSegmentTime,
 } from '../../../store/segmentsStore';
-import { AudioInput } from '../../../types/segments';
+import { AudioInput, VideoSegment } from '../../../types/segments';
+import { getSegmentOverlaps, formatOverlapWarning } from '../../../utils/segmentOverlapDetection';
 
 interface SegmentDialogProps {
   open: boolean;
@@ -62,6 +63,7 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
     getAllAudioFiles,
     addAudioFile,
     getAudioFileByRefId,
+    segments,
   } = useSegmentsStore();
 
   // Form state
@@ -183,7 +185,69 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
         setError('Audio start time cannot be negative');
         return;
       }
+      // If audio crop is enabled, ensure both start and end times are set
+      if (audioStartTime === null || audioEndTime === null) {
+        setError('When using audio crop, both start time and end time must be set');
+        return;
+      }
     }
+
+    // Validate segment duration doesn't exceed audio duration
+    if (audioFile || (editingSegmentId && selectedAudioRefId)) {
+      // Get audio file (either new or existing)
+      let fileToValidate = audioFile;
+
+      if (!fileToValidate && editingSegmentId && selectedAudioRefId) {
+        // Get existing audio file
+        const existingAudioFile = getAudioFileByRefId(selectedAudioRefId);
+        if (existingAudioFile) {
+          fileToValidate = existingAudioFile.file;
+        }
+      }
+
+      if (fileToValidate) {
+        // Get audio duration from HTML5 Audio API
+        const audio = new Audio();
+        const objectUrl = URL.createObjectURL(fileToValidate);
+
+        audio.addEventListener('loadedmetadata', () => {
+          const audioDuration = audio.duration;
+          URL.revokeObjectURL(objectUrl);
+
+          // Calculate available audio duration after crop
+          const audioStart = enableAudioCrop ? (audioStartTime ?? 0) : 0;
+          const audioEnd = enableAudioCrop ? (audioEndTime ?? audioDuration) : audioDuration;
+          const availableAudioDuration = audioEnd - audioStart;
+
+          const segmentDuration = endTime - startTime;
+
+          if (segmentDuration > availableAudioDuration) {
+            setError(
+              `Segment duration (${segmentDuration.toFixed(2)}s) exceeds available audio duration (${availableAudioDuration.toFixed(2)}s). ` +
+              `Please reduce the segment end time or adjust audio crop settings.`
+            );
+            return;
+          }
+
+          // Continue with submission
+          proceedWithSubmit();
+        });
+
+        audio.addEventListener('error', () => {
+          URL.revokeObjectURL(objectUrl);
+          setError('Failed to load audio file. Please try again.');
+        });
+
+        audio.src = objectUrl;
+        return; // Wait for audio metadata to load
+      }
+    }
+
+    // If no audio file (shouldn't happen), proceed directly
+    proceedWithSubmit();
+  };
+
+  const proceedWithSubmit = () => {
 
     // Determine the refId to use
     let finalRefId: string;
@@ -247,6 +311,25 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
 
   const duration = endTime - startTime;
 
+  // Check for overlaps if editing an existing segment
+  const overlapInfo = React.useMemo(() => {
+    if (!editingSegmentId) return null;
+    const overlap = getSegmentOverlaps(editingSegmentId, segments);
+    if (!overlap) return null;
+
+    const currentSegment = getSegmentById(editingSegmentId);
+    if (!currentSegment) return null;
+
+    const overlappingLabels = overlap.overlappingWithIds
+      .map(id => getSegmentById(id)?.label || id)
+      .filter(Boolean);
+
+    return {
+      message: formatOverlapWarning(currentSegment.label || 'This segment', overlappingLabels),
+      count: overlappingLabels.length,
+    };
+  }, [editingSegmentId, segments, getSegmentById]);
+
   return (
     <Dialog
       open={open}
@@ -268,6 +351,18 @@ const SegmentDialog: React.FC<SegmentDialogProps> = ({
       </DialogTitle>
 
       <DialogContent dividers>
+        {/* Overlap Warning */}
+        {overlapInfo && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              ⚠️ Segment Overlap Detected
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {overlapInfo.message}
+            </Typography>
+          </Alert>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}

@@ -6,3 +6,7 @@ export { default as TimelineControls } from './TimelineControls';
 export { default as TimeRuler } from './TimeRuler';
 export { default as FrameStrip } from './FrameStrip';
 export { default as TimelineEffectsTrack } from './TimelineEffectsTrack';
+export { EmptyTimelineDropZone } from './EmptyTimelineDropZone';
+export { SubmitHeader } from './SubmitHeader';
+export { VideoPlayerSection } from './VideoPlayerSection';
+export { TimelineSection } from './TimelineSection';

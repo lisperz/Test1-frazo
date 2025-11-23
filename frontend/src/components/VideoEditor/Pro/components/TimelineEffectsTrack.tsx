@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
-import { Delete } from '@mui/icons-material';
+import { Delete, Warning } from '@mui/icons-material';
+import { EmptyTimelineDropZone } from './EmptyTimelineDropZone';
 
 interface TimelineEffect {
   id: string;
@@ -21,6 +22,20 @@ interface TimelineEffectsTrackProps {
   onEffectDrag: (e: React.MouseEvent, effectId: string, type: 'start' | 'end' | 'move') => void;
   onEffectClick: (effectId: string, e: React.MouseEvent) => void;
   onEffectDelete: (id: string) => void;
+  overlappingSegmentIds?: Set<string>;
+  // Audio drop zone props
+  showDropZone?: boolean;
+  dropZoneProps?: {
+    isDragging: boolean;
+    isOver: boolean;
+    error: string | null;
+    onDragEnter: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDragLeave: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent) => void;
+    onFileSelect: (file: File) => void;
+    onClearError: () => void;
+  };
 }
 
 const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
@@ -33,6 +48,9 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
   onEffectDrag,
   onEffectClick,
   onEffectDelete,
+  overlappingSegmentIds = new Set(),
+  showDropZone = false,
+  dropZoneProps,
 }) => {
   return (
     <Box sx={{
@@ -71,7 +89,6 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        mb: 1.5,
         pb: 1,
         borderBottom: '1px solid #e9ecef'
       }}>
@@ -82,6 +99,13 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
           Current Effects ({timelineEffects.length})
         </Typography>
       </Box>
+
+      {/* Show Drop Zone when no segments exist - at the TOP */}
+      {showDropZone && dropZoneProps && (
+        <Box sx={{ px: 2, py: 0.5, width: '100%' }}>
+          <EmptyTimelineDropZone {...dropZoneProps} />
+        </Box>
+      )}
 
       {/* Effect Bars */}
       <Box sx={{
@@ -115,6 +139,7 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
             const trackTop = index * 40 + 5;
             const effectLeft = effect.startFrame;
             const effectWidth = effect.endFrame - effect.startFrame;
+            const isOverlapping = overlappingSegmentIds.has(effect.id);
 
             return (
               <Box
@@ -133,13 +158,23 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
                   px: 1,
                   opacity: editingEffectId === effect.id ? 1 : 0.85,
                   zIndex: 15,
-                  border: editingEffectId === effect.id ? '2px solid #1890ff' : '1px solid rgba(255,255,255,0.3)',
-                  boxShadow: editingEffectId === effect.id ? '0 2px 8px rgba(24,144,255,0.4)' : '0 1px 3px rgba(0,0,0,0.1)',
+                  border: isOverlapping
+                    ? '2px solid #ff4d4f'
+                    : editingEffectId === effect.id
+                      ? '2px solid #1890ff'
+                      : '1px solid rgba(255,255,255,0.3)',
+                  boxShadow: isOverlapping
+                    ? '0 0 8px rgba(255, 77, 79, 0.6)'
+                    : editingEffectId === effect.id
+                      ? '0 2px 8px rgba(24,144,255,0.4)'
+                      : '0 1px 3px rgba(0,0,0,0.1)',
                   transition: 'all 0.2s ease',
                   '&:hover': {
                     opacity: 1,
                     transform: 'translateY(-1px)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    boxShadow: isOverlapping
+                      ? '0 0 12px rgba(255, 77, 79, 0.8)'
+                      : '0 2px 6px rgba(0,0,0,0.15)',
                     '& [data-drag-handle="true"]': {
                       opacity: 1
                     }
@@ -180,16 +215,28 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  gap: 0.25,
                 }}>
-                  <Typography sx={{
-                    color: 'white',
-                    fontSize: '9px',
-                    fontWeight: 600,
-                    userSelect: 'none',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-                  }}>
-                    {effect.label}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {isOverlapping && (
+                      <Warning
+                        sx={{
+                          fontSize: 11,
+                          color: '#fff',
+                          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                        }}
+                      />
+                    )}
+                    <Typography sx={{
+                      color: 'white',
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      userSelect: 'none',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                    }}>
+                      {effect.label}
+                    </Typography>
+                  </Box>
                   <Typography sx={{
                     color: 'rgba(255, 255, 255, 0.9)',
                     fontSize: '8px',

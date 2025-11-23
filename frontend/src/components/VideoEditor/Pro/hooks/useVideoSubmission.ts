@@ -88,8 +88,8 @@ export const useVideoSubmission = (
 
       // Build segments data for API
       const segmentsData = segments.map(seg => {
-        // Per Sync.so docs: audioInput times are OPTIONAL
-        // Only include when user explicitly enables audio cropping
+        // Per Sync.so docs: audioInput times are REQUIRED when multiple segments share the same audio
+        // This tells Sync.so which portion of the audio file to use for each segment
         const audioInput: {
           refId: string;
           startTime?: number;
@@ -98,10 +98,12 @@ export const useVideoSubmission = (
           refId: seg.audioInput.refId,
         };
 
-        // Only include audio crop times if both are explicitly set by user
-        if (seg.audioInput.startTime !== null && seg.audioInput.startTime !== undefined &&
-            seg.audioInput.endTime !== null && seg.audioInput.endTime !== undefined) {
+        // ALWAYS include audio crop times if they are set in the segment
+        // This is critical when multiple segments use the same audio file
+        if (seg.audioInput.startTime !== null && seg.audioInput.startTime !== undefined) {
           audioInput.startTime = seg.audioInput.startTime;
+        }
+        if (seg.audioInput.endTime !== null && seg.audioInput.endTime !== undefined) {
           audioInput.endTime = seg.audioInput.endTime;
         }
 
