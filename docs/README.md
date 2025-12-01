@@ -1,0 +1,187 @@
+# Documentation Index
+
+**Video Text Inpainting Service** - Developer Documentation
+
+---
+
+## 📚 Documentation Files
+
+### 1. **[QUICK_START.md](./QUICK_START.md)** ⚡
+**Start Here!** - Get up and running in 5 minutes.
+
+- 3-step authentication and upload
+- Common use cases with examples
+- Troubleshooting quick fixes
+- Essential concepts (segments, audio cropping)
+
+**Perfect for**: Developers who want to test the API quickly.
+
+---
+
+### 2. **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)** 📖
+**Complete Integration Guide** - Everything you need to integrate the service.
+
+**Contents**:
+- Executive Summary
+- System Architecture & Tech Stack
+- Complete API Reference with Python examples
+- 3 Integration Options (API, iframe, React components)
+- Detailed workflow diagrams
+- External API dependencies (Sync.so, GhostCut, AWS S3)
+- Authentication & Security best practices
+- Environment configuration
+- Deployment architecture (Docker Compose)
+- Performance & Scalability guidelines
+- Monitoring & Logging setup
+
+**Perfect for**: Developers integrating the service into production applications.
+
+---
+
+### 3. **[API_SPECIFICATION.md](./API_SPECIFICATION.md)** 📋
+**API Reference** - Complete endpoint documentation.
+
+**Contents**:
+- All API endpoints with request/response examples
+- Authentication flows
+- Pro Video Editor multi-segment API (primary endpoint)
+- Job management and status tracking
+- WebSocket real-time events
+- Data models (TypeScript interfaces)
+- Response codes and error handling
+- Rate limits by tier
+- Pagination and versioning
+
+**Perfect for**: API reference during development.
+
+---
+
+## 🚀 Getting Started Path
+
+```
+1. Read QUICK_START.md (5 minutes)
+   ↓
+2. Test the API with curl/Postman
+   ↓
+3. Read INTEGRATION_GUIDE.md (30 minutes)
+   ↓
+4. Reference API_SPECIFICATION.md as needed
+   ↓
+5. Start integration! 🎉
+```
+
+---
+
+## 🎯 Find What You Need
+
+### I want to...
+
+#### **Quickly test the API**
+→ [QUICK_START.md](./QUICK_START.md) - 3-step setup
+
+#### **Understand the system architecture**
+→ [INTEGRATION_GUIDE.md - System Architecture](./INTEGRATION_GUIDE.md#system-architecture)
+
+#### **See all available endpoints**
+→ [API_SPECIFICATION.md](./API_SPECIFICATION.md)
+
+#### **Learn about multi-segment lip-sync**
+→ [INTEGRATION_GUIDE.md - Pro Video Editor API](./INTEGRATION_GUIDE.md#1-pro-video-editor---multi-segment-lip-sync)
+
+#### **Handle large file uploads**
+→ [API_SPECIFICATION.md - Chunked Upload](./API_SPECIFICATION.md#file-upload-apis)
+
+#### **Get real-time job updates**
+→ [API_SPECIFICATION.md - WebSocket Events](./API_SPECIFICATION.md#websocket-events)
+
+#### **Deploy to production**
+→ [INTEGRATION_GUIDE.md - Deployment](./INTEGRATION_GUIDE.md#deployment-architecture)
+
+#### **Troubleshoot errors**
+→ [QUICK_START.md - Troubleshooting](./QUICK_START.md#-troubleshooting)
+
+#### **Understand rate limits**
+→ [API_SPECIFICATION.md - Rate Limits](./API_SPECIFICATION.md#rate-limits)
+
+---
+
+## 💡 Key Concepts
+
+### **Segments**
+Time ranges in a video where you replace audio with lip-sync. Each segment can use a different audio file or different parts of the same audio file.
+
+### **Audio Cropping**
+When splitting a segment, you need to specify which portion of the audio file to use for each segment. This is done with `audioInput.startTime` and `audioInput.endTime`.
+
+### **Effects**
+Annotation areas for text removal (erasure), protection (keep text), or text detection zones.
+
+### **Job Processing**
+All video processing is asynchronous. Submit a job, get a `job_id`, then poll for status or use WebSocket for real-time updates.
+
+---
+
+## 🔥 Most Important Endpoints
+
+### 1. **Pro Video Editor - Multi-Segment Lip-Sync**
+```
+POST /api/v1/video-editors/sync/pro-sync-process
+```
+Upload video + audio files with segment configurations. Returns job_id for tracking.
+
+### 2. **Job Status**
+```
+GET /api/v1/jobs/{job_id}
+```
+Check processing status and get download link when completed.
+
+### 3. **Authentication**
+```
+POST /api/v1/auth/login
+```
+Get JWT access token for API requests.
+
+---
+
+## 📊 Tech Stack Overview
+
+| Layer | Technology |
+|-------|------------|
+| **Backend** | FastAPI (Python 3.11+) |
+| **Database** | PostgreSQL 15 |
+| **Cache/Queue** | Redis 7 |
+| **Task Queue** | Celery 5.3.4 |
+| **Storage** | AWS S3 |
+| **Frontend** | React 19 + TypeScript |
+| **External APIs** | Sync.so (lip-sync), GhostCut (text removal) |
+| **Infrastructure** | Docker + Docker Compose |
+
+---
+
+## 📞 Support
+
+- **Technical Questions**: support@your-domain.com
+- **API Issues**: Check [API_SPECIFICATION.md - Error Response Format](./API_SPECIFICATION.md#error-response-format)
+- **GitHub**: https://github.com/your-repo
+- **Slack**: #video-inpainting-api
+
+---
+
+## 📝 Contributing
+
+Found an issue or want to improve the docs? Please:
+
+1. Check existing documentation first
+2. Open an issue describing the problem/suggestion
+3. Submit a pull request with improvements
+
+---
+
+## 🔄 Last Updated
+
+**Date**: December 1, 2025
+**API Version**: 1.0.0
+
+---
+
+**Happy integrating! 🚀**
