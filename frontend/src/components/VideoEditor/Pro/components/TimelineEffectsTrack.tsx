@@ -12,11 +12,21 @@ interface TimelineEffect {
   label: string;
 }
 
+interface VideoSegment {
+  id: string;
+  startTime: number;
+  endTime: number;
+  color: string;
+  label?: string;
+}
+
 interface TimelineEffectsTrackProps {
   timelineEffects: TimelineEffect[];
+  segments: VideoSegment[];
   duration: number;
   currentTime: number;
   progressPercentage: number;
+  timelineZoom?: number;
   editingEffectId: string | null;
   formatTime: (seconds: number, includeMs?: boolean) => string;
   onEffectDrag: (e: React.MouseEvent, effectId: string, type: 'start' | 'end' | 'move') => void;
@@ -40,9 +50,11 @@ interface TimelineEffectsTrackProps {
 
 const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
   timelineEffects,
+  segments,
   duration,
   currentTime,
   progressPercentage,
+  timelineZoom = 1,
   editingEffectId,
   formatTime,
   onEffectDrag,
@@ -52,12 +64,15 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
   showDropZone = false,
   dropZoneProps,
 }) => {
+  // Calculate total tracks needed: 1 for segments + N for effects
+  const totalTracks = (segments.length > 0 ? 1 : 0) + timelineEffects.length;
   return (
     <Box sx={{
       position: 'relative',
       flex: 1,
       minHeight: 200,
       maxHeight: 300,
+      width: '100%',
       bgcolor: 'white',
       borderRadius: '6px',
       border: '1px solid #d9d9d9',
@@ -96,7 +111,7 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
           Effect Track
         </Typography>
         <Typography sx={{ fontSize: '11px', color: '#999' }}>
-          Current Effects ({timelineEffects.length})
+          Segments ({segments.length}) | Effects ({timelineEffects.length})
         </Typography>
       </Box>
 
@@ -132,11 +147,173 @@ const TimelineEffectsTrack: React.FC<TimelineEffectsTrackProps> = ({
       }}>
         <Box sx={{
           position: 'relative',
-          height: `${Math.max(50, timelineEffects.length * 40)}px`,
-          width: '100%'
+          height: `${Math.max(50, totalTracks * 40)}px`,
+          width: '100%',
         }}>
+          {/* Render all segments on track 0 (same row) */}
+          {segments.map((segment, index) => {
+            const trackTop = 5; // All segments on the same row (track 0)
+            const segmentLeft = (segment.startTime / duration) * 100;
+            const segmentWidth = ((segment.endTime - segment.startTime) / duration) * 100;
+            const isOverlapping = overlappingSegmentIds.has(segment.id);
+
+            return (
+              <Box
+                key={segment.id}
+                sx={{
+                  position: 'absolute',
+                  left: `${segmentLeft}%`,
+                  width: `${segmentWidth}%`,
+                  top: `${trackTop}px`,
+                  height: '30px',
+                  bgcolor: segment.color,
+                  borderRadius: '4px',
+                  cursor: 'move',
+                  display: 'flex',
+                  alignItems: 'center',
+                  px: 1,
+                  opacity: 0.85,
+                  zIndex: 15,
+                  border: isOverlapping
+                    ? '2px solid #ff4d4f'
+                    : '1px solid rgba(255,255,255,0.3)',
+                  boxShadow: isOverlapping
+                    ? '0 0 8px rgba(255, 77, 79, 0.6)'
+                    : '0 1px 3px rgba(0,0,0,0.1)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    opacity: 1,
+                    transform: 'translateY(-1px)',
+                    boxShadow: isOverlapping
+                      ? '0 0 12px rgba(255, 77, 79, 0.8)'
+                      : '0 2px 6px rgba(0,0,0,0.15)',
+                    '& [data-drag-handle="true"]': {
+                      opacity: 1
+                    }
+                  }
+                }}
+                onMouseDown={(e) => onEffectDrag(e, segment.id, 'move')}
+                onClick={(e) => onEffectClick(segment.id, e)}
+              >
+                {/* Start Handle */}
+                <Box
+                  data-drag-handle="true"
+                  sx={{
+                    position: 'absolute',
+                    left: -2,
+                    top: 0,
+                    bottom: 0,
+                    width: '6px',
+                    bgcolor: 'rgba(255,255,255,0.8)',
+                    cursor: 'ew-resize',
+                    borderRadius: '2px 0 0 2px',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,1)',
+                      opacity: 1,
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    onEffectDrag(e, segment.id, 'start');
+                  }}
+                />
+
+                {/* Label with time range */}
+                <Box sx={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 0.25,
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {isOverlapping && (
+                      <Warning
+                        sx={{
+                          fontSize: 11,
+                          color: '#fff',
+                          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                        }}
+                      />
+                    )}
+                    <Typography sx={{
+                      color: 'white',
+                      fontSize: '9px',
+                      fontWeight: 600,
+                      userSelect: 'none',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                    }}>
+                      {segment.label || `Segment ${index + 1}`}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontSize: '8px',
+                    fontFamily: 'monospace',
+                    userSelect: 'none',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                  }}>
+                    {formatTime(segment.startTime, true)} - {formatTime(segment.endTime, true)}
+                  </Typography>
+                </Box>
+
+                {/* Delete Button */}
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEffectDelete(segment.id);
+                  }}
+                  sx={{
+                    p: 0.25,
+                    color: 'rgba(255,255,255,0.9)',
+                    opacity: 0.8,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      opacity: 1,
+                      transform: 'scale(1.1)'
+                    }
+                  }}
+                >
+                  <Delete sx={{ fontSize: 12 }} />
+                </IconButton>
+
+                {/* End Handle */}
+                <Box
+                  data-drag-handle="true"
+                  sx={{
+                    position: 'absolute',
+                    right: -2,
+                    top: 0,
+                    bottom: 0,
+                    width: '6px',
+                    bgcolor: 'rgba(255,255,255,0.8)',
+                    cursor: 'ew-resize',
+                    borderRadius: '0 2px 2px 0',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,1)',
+                      opacity: 1,
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    onEffectDrag(e, segment.id, 'end');
+                  }}
+                />
+              </Box>
+            );
+          })}
+
+          {/* Render effects on subsequent tracks (starting from track 1 if segments exist) */}
           {timelineEffects.map((effect, index) => {
-            const trackTop = index * 40 + 5;
+            const trackOffset = segments.length > 0 ? 1 : 0; // Offset by 1 if segments exist
+            const trackTop = (trackOffset + index) * 40 + 5;
             const effectLeft = effect.startFrame;
             const effectWidth = effect.endFrame - effect.startFrame;
             const isOverlapping = overlappingSegmentIds.has(effect.id);

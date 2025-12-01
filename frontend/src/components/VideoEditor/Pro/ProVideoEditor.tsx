@@ -120,9 +120,9 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
     console.log('Segments:', segments);
   }, [segments]);
 
-  // Synchronize timeline effects with main effects store AND segments
+  // Synchronize timeline effects with main effects store (NOT including segments)
   useEffect(() => {
-    // Map video effects (erasure, protection, text)
+    // Map video effects (erasure, protection, text) - segments handled separately
     const syncedTimelineEffects: TimelineEffect[] = effects.map(effect => {
       const colors = {
         erasure: '#5B8FF9',
@@ -147,19 +147,9 @@ const ProVideoEditor: React.FC<ProVideoEditorProps> = ({
       };
     });
 
-    // Add segments to timeline effects
-    const segmentEffects: TimelineEffect[] = segments.map((segment, index) => ({
-      id: segment.id,
-      type: 'text' as const, // Use 'text' type so it's compatible with TimelineEffect type
-      startFrame: (segment.startTime / duration) * 100,
-      endFrame: (segment.endTime / duration) * 100,
-      color: segment.color,
-      label: segment.label || `Segment ${index + 1}`,
-    }));
-
-    // Combine effects and segments
-    setTimelineEffects([...syncedTimelineEffects, ...segmentEffects]);
-  }, [effects, segments, duration]); // Sync whenever effects, segments, or duration changes
+    // Only set effects, not segments (segments passed separately to TimelineEffectsTrack)
+    setTimelineEffects(syncedTimelineEffects);
+  }, [effects, duration]); // Removed segments from dependencies
 
   // Initialize video in segments store when component mounts
   useEffect(() => {

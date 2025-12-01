@@ -46,9 +46,8 @@ const TimeRuler: React.FC<TimeRulerProps> = ({
         display: 'flex',
         alignItems: 'center',
         cursor: 'pointer',
-        overflow: 'hidden',
-        minWidth: `${100 * timelineZoom}%`,
-        width: `${100 * timelineZoom}%`,
+        overflow: 'visible',
+        width: '100%',
       }}
     >
       {/* Background gradient */}

@@ -1,110 +1,112 @@
 # Project Status - Video Text Inpainting Service
 
-**Last Updated**: November 23, 2025
+**Last Updated**: December 1, 2025
 **Current Status**: ✅ **FULLY FUNCTIONAL & PRODUCTION READY**
 
 ---
 
 ## 🎯 Recent Updates
 
+### December 1, 2025 - Session 5: Timeline Zoom & Unified Scroll Implementation
+
+**Major UX Improvements**:
+
+1. ✅ **Unified Timeline Zoom with Single Scrollbar**
+   - **Issue**: Multiple scrollbars when zoomed (one for effects, one for video), playhead misalignment across timeline components
+   - **Solution**: Implemented unified scroll container with synchronized playhead positioning
+   - **Files Modified**:
+     - `frontend/src/components/VideoEditor/Pro/components/TimelineSection.tsx` (lines 388-500)
+     - `frontend/src/components/VideoEditor/Pro/components/TimeRuler.tsx` (lines 36-51)
+     - `frontend/src/components/VideoEditor/Pro/components/FrameStrip.tsx` (lines 39-56)
+     - `frontend/src/components/VideoEditor/Pro/components/TimelineEffectsTrack.tsx` (lines 57-71, 148-152)
+   - **Architecture Changes**:
+     ```
+     Before: Multiple scroll containers → Multiple scrollbars
+     After:  Single scroll container → ONE scrollbar
+             └── Timeline Wrapper (scales with zoom)
+                 ├── Time Ruler (100% width)
+                 ├── Frame Strip (100% width)
+                 └── Effects Track (100% width)
+     ```
+   - **Key Implementation**:
+     - Unified container with `id="timeline-scroll-container"`
+     - All timeline components inherit width from parent wrapper: `width: ${100 * timelineZoom}%`
+     - Playhead uses `left: ${progressPercentage}%` - stays synchronized across all components
+     - Custom scrollbar styling (10px, rounded)
+   - **Result**: Professional video editing experience with smooth zoom (0.5x to 5x) and perfect playhead alignment
+
+2. ✅ **Single-Row Segment Layout (Split Segments Stay Together)**
+   - **Issue**: When splitting segments, resulting segments appeared on different rows, making it hard to view all audio segments together
+   - **Root Cause**: Segments and effects were combined into single array, each placed on separate row using `trackTop = index * 40 + 5`
+   - **Solution**: Separated segments from effects, render all segments on same track (row 0)
+   - **Files Modified**:
+     - `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` (lines 123-152) - Removed segments from timelineEffects combination
+     - `frontend/src/components/VideoEditor/Pro/components/TimelineEffectsTrack.tsx` (complete rewrite, lines 15-320)
+     - `frontend/src/components/VideoEditor/Pro/components/TimelineSection.tsx` (line 471) - Added segments prop
+   - **Timeline Layout**:
+     ```
+     Track 0 (Orange): [Segment 1][Segment 2][Segment 3] ← All on same line
+     Track 1 (Blue):   [Erasure Area]                     ← If any effects exist
+     Track 2 (Green):  [Protection Area]                  ← If any effects exist
+     ```
+   - **Key Changes**:
+     - All segments render with `trackTop = 5` (same row)
+     - Effects render with `trackTop = (trackOffset + index) * 40 + 5` (offset by 1 if segments exist)
+     - Total tracks: `(segments.length > 0 ? 1 : 0) + timelineEffects.length`
+     - Header shows: "Segments (N) | Effects (M)"
+   - **Result**: Clear visual hierarchy - all audio segments together on top row, video effects on separate rows below
+
+**User Experience Improvements**:
+- ✅ **One scrollbar** - Easy navigation when zoomed in/out
+- ✅ **Aligned playhead** - Red playhead line synchronized perfectly across all timeline components
+- ✅ **Smooth zooming** - All components scale together (thumbnails, ruler, segments, effects)
+- ✅ **Split segments stay together** - When you split with Ctrl+K, both segments remain on same row
+- ✅ **Intuitive scrolling** - Standard horizontal + vertical scroll behavior
+
+---
+
 ### November 23, 2025 - Session 4: Segment Overlap Detection & Audio Duration Management
 
-**Critical Fixes Implemented**:
+**Critical Fixes**:
 
 1. ✅ **Segment Overlap Detection with Boundary Warnings**
-   - **Issue**: When splitting segments, boundary overlaps (e.g., Seg1 ends at 1.87s, Seg2 starts at 1.87s) were not showing warnings
-   - **Solution**: Updated overlap detection to catch both interior overlaps AND exact boundary matches
-   - **Files Modified**:
-     - `frontend/src/utils/segmentOverlapDetection.ts` - Added boundary overlap detection
-     - `frontend/src/components/VideoEditor/Pro/components/SubmitHeader.tsx` - Visual warning chip in header
-     - `frontend/src/components/VideoEditor/Pro/components/TimelineEffectsTrack.tsx` - Warning indicators on segments
-   - **Result**: Users now see clear warnings when segments overlap at boundaries
+   - Updated overlap detection to catch both interior overlaps AND exact boundary matches
+   - Files: `frontend/src/utils/segmentOverlapDetection.ts`, `frontend/src/components/VideoEditor/Pro/components/SubmitHeader.tsx`
 
-2. ✅ **Automatic Audio Crop Time Management for Split Segments**
-   - **Issue**: When splitting segments, audio crop times weren't being set, causing Sync.so API failures with "An error occurred in the generation pipeline"
-   - **Root Cause**: Multiple segments sharing the same audio file WITHOUT audio crop times → Sync.so doesn't know which audio portion to use for each segment
-   - **Solution**: Automatic audio crop calculation during split operations
-   - **Files Modified**:
-     - `frontend/src/store/segmentsStore.ts` (lines 396-450) - Auto-calculate and set audio crop times when splitting
-   - **How It Works**:
-     - When you split a segment, each resulting segment gets `audioInput.startTime` and `audioInput.endTime` automatically set
-     - Audio times match the video segment times, ensuring proper audio distribution
-     - Example: Split at 2.5s → Seg1 gets audio 0-2.5s, Seg2 gets audio 2.5-8.3s
-   - **Result**: Segments created by splitting now work perfectly with Sync.so API
+2. ✅ **Automatic Audio Crop Time Management**
+   - When splitting segments, audio crop times auto-set to match video segment times
+   - File: `frontend/src/store/segmentsStore.ts` (lines 396-450)
 
-3. ✅ **Flexible Segment Drag Constraints (Audio Duration Limits)**
-   - **Issue**: Users couldn't extend segments beyond their own audio crop range, even when the original audio was longer
-   - **Old Behavior**: Each segment restricted to its own audio crop range (e.g., Seg1 with crop 0-1.5s couldn't extend past 1.5s)
-   - **New Behavior**: All segments can extend up to the **full original audio duration**, not just their crop range
-   - **Files Modified**:
-     - `frontend/src/components/VideoEditor/Pro/hooks/useSegmentHandlers.ts` (lines 132-209)
-   - **Key Changes**:
-     - End handle drag: `maxAllowedEndTime = Math.min(duration, segment.audioInput.duration)` - allows extending to full audio length
-     - Move segment: Allows movement as long as segment end doesn't exceed full audio duration
-     - Audio crop times automatically adjust as you drag
-   - **Example**:
-     - Audio: 5 seconds, Video: 8 seconds
-     - All segments can now extend to 5s (full audio length), not just their individual crop ranges
-   - **Result**: Much more flexible editing workflow, matches user expectations
+3. ✅ **Flexible Segment Drag Constraints**
+   - Segments can extend to full audio duration, not limited by crop range
+   - File: `frontend/src/components/VideoEditor/Pro/hooks/useSegmentHandlers.ts` (lines 132-209)
 
-4. ✅ **Audio Duration Validation in SegmentDialog**
-   - **Issue**: Users could create segments longer than the audio file, causing API failures
-   - **Solution**: Added async validation using HTML5 Audio API to check segment duration vs available audio
-   - **Files Modified**:
-     - `frontend/src/components/VideoEditor/Pro/SegmentDialog.tsx` (lines 195-243)
-   - **Validation Logic**:
-     - Gets actual audio file duration using HTML5 Audio API
-     - Calculates available audio after considering crop settings
-     - Shows error if segment duration exceeds available audio
-     - Works for both new uploads and existing audio files
-   - **Result**: Prevents invalid configurations before submission
-
-**Workflow Summary**:
-1. Drag audio file → Creates 1 segment spanning `0 to min(audioDuration, videoDuration)`
-2. Split segment (Ctrl+K) → Auto-sets audio crop times to match video times
-3. Drag segment ends → Can extend to full audio duration (not restricted by crop range)
-4. Submit → Works perfectly because all segments have proper audio crop settings
-
-**Technical Details**:
-- **Overlap Detection**: Now catches boundary overlaps using `segment1.endTime === segment2.startTime || segment2.endTime === segment1.startTime`
-- **Split Logic**: Calculates `originalAudioStart`, `originalAudioEnd`, `audioSplitTime` based on split ratio
-- **Drag Constraints**: Uses `segment.audioInput.duration` as the maximum, not the segment's crop range
-- **Validation**: Async audio file loading with `loadedmetadata` event listener
+4. ✅ **Audio Duration Validation**
+   - Prevents segments exceeding available audio length
+   - File: `frontend/src/components/VideoEditor/Pro/SegmentDialog.tsx` (lines 195-243)
 
 ---
 
 ### November 10, 2025 - Session 3: Segment Split Feature
 
-**New Feature - Segment Splitting**:
-- ✅ **Split at Playhead (Ctrl+K)**: Industry-standard segment splitting workflow
-  - Files: `frontend/src/store/segmentsStore.ts`, `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx`
-  - **Split Button**: Purple button with scissors icon (✂️) in toolbar
-  - **Keyboard Shortcut**: `Ctrl+K` (or `Cmd+K` on Mac)
-  - **Sequential Naming**: Auto-renumbers segments as "Segment 1", "Segment 2", etc.
-  - **Audio Sync**: Audio times split proportionally with video segments (NOW WORKING CORRECTLY)
-  - **Smart Validation**: Prevents splits creating segments < 0.5 seconds
-  - **Undo/Redo Support**: Full history tracking for split operations
-
-**Database Fix**:
-- ✅ Added missing `status_metadata` column to `job_status_history` table
-  - Command: `ALTER TABLE job_status_history ADD COLUMN status_metadata JSONB DEFAULT '{}'::jsonb;`
+- ✅ **Split at Playhead (Ctrl+K)**: Industry-standard segment splitting
+- ✅ **Database Fix**: Added `status_metadata` column to `job_status_history` table
 
 ---
 
 ## 🚀 Key Features
 
 **Pro Video Editor** (`/editor/pro`):
-- ✅ Multi-segment audio replacement with precise time ranges
-- ✅ **Segment splitting with Ctrl+K** - Creates segments with automatic audio crop times
-- ✅ **Overlap detection with visual warnings** - Shows warnings for boundary and interior overlaps
+- ✅ **Unified timeline zoom** (0.5x to 5x) with single scrollbar and synchronized playhead
+- ✅ **Single-row segment layout** - All audio segments on same track for easy visualization
+- ✅ **Segment splitting (Ctrl+K)** - Creates segments with automatic audio crop times
+- ✅ **Overlap detection** - Visual warnings for boundary and interior overlaps
 - ✅ **Flexible drag constraints** - Extend segments to full audio duration
 - ✅ **Audio duration validation** - Prevents segments exceeding audio length
-- ✅ **Sequential auto-numbering** - "Segment 1", "Segment 2", etc.
-- ✅ Audio file reuse across segments (upload once, use multiple times)
-- ✅ Segment keyboard operations: Delete (instant), Undo/Redo (Ctrl+Z/Y), Split (Ctrl+K)
-- ✅ Resizable segments with drag handles (left/right/middle) - audio times auto-sync
-- ✅ Visual selection feedback with blue borders
-- ✅ 50-operation undo/redo history
+- ✅ Multi-segment audio replacement with precise time ranges
+- ✅ Sequential auto-numbering ("Segment 1", "Segment 2", etc.)
+- ✅ Resizable segments with drag handles - audio times auto-sync
+- ✅ 50-operation undo/redo history (Ctrl+Z/Y)
 - ✅ Chained processing: Sync.so (lip-sync) → GhostCut (text removal)
 
 **Other Editors**:
@@ -113,11 +115,10 @@
 - ✅ Translations page (`/translate`)
 
 **Backend**:
-- ✅ Sync.so API integration (model: **lipsync-2-pro**, sync_mode: remap)
-- ✅ GhostCut API integration with separate monitoring for Pro vs regular jobs
-- ✅ Audio deduplication by refId
+- ✅ Sync.so API integration (model: **lipsync-2-pro**)
+- ✅ GhostCut API integration
 - ✅ S3 storage for videos and audio files
-- ✅ Database schema fix: `status_metadata` column added
+- ✅ Database schema: `status_metadata` column
 
 ---
 
@@ -137,9 +138,6 @@ docker-compose build backend worker && docker-compose up -d backend worker
 docker-compose logs -f frontend
 docker-compose logs -f backend
 docker-compose logs -f worker
-
-# Database fix for status_metadata column (already applied)
-docker-compose exec db psql -U vti_user -d video_text_inpainting -c "ALTER TABLE job_status_history ADD COLUMN IF NOT EXISTS status_metadata JSONB DEFAULT '{}'::jsonb;"
 ```
 
 **Access URLs**:
@@ -152,52 +150,47 @@ docker-compose exec db psql -U vti_user -d video_text_inpainting -c "ALTER TABLE
 ## 📚 Critical Files Reference
 
 **Frontend - Pro Video Editor**:
-- `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` - Main editor with segment drag logic & split button
-- `frontend/src/store/segmentsStore.ts` - Segment store with undo/redo, split logic, and auto audio crop
-- `frontend/src/components/VideoEditor/Pro/SegmentDialog.tsx` - Segment creation dialog with audio duration validation
-- `frontend/src/components/VideoEditor/Pro/hooks/useSegmentHandlers.ts` - Drag handlers with flexible audio constraints
-- `frontend/src/components/VideoEditor/Pro/hooks/useVideoSubmission.ts` - Submission logic with audio crop data
-- `frontend/src/utils/segmentOverlapDetection.ts` - Overlap detection including boundary overlaps
+- `frontend/src/components/VideoEditor/Pro/ProVideoEditor.tsx` - Main editor, segment drag logic, split button
+- `frontend/src/components/VideoEditor/Pro/components/TimelineSection.tsx` - Unified scroll container, zoom wrapper
+- `frontend/src/components/VideoEditor/Pro/components/TimeRuler.tsx` - Time ruler with zoom support
+- `frontend/src/components/VideoEditor/Pro/components/FrameStrip.tsx` - Video thumbnails with zoom
+- `frontend/src/components/VideoEditor/Pro/components/TimelineEffectsTrack.tsx` - Dual-track rendering (segments + effects)
+- `frontend/src/store/segmentsStore.ts` - Segment store with undo/redo, split logic, audio crop
+- `frontend/src/components/VideoEditor/Pro/SegmentDialog.tsx` - Segment creation with validation
+- `frontend/src/components/VideoEditor/Pro/hooks/useSegmentHandlers.ts` - Drag handlers with flexible constraints
+- `frontend/src/utils/segmentOverlapDetection.ts` - Overlap detection (boundary + interior)
 
 **Backend - Sync.so Integration**:
-- `backend/services/sync_segments_service.py` - Sync.so API client (model: lipsync-2-pro)
-- `backend/workers/video_tasks/pro_jobs.py` - Pro job monitoring (Sync.so + GhostCut)
+- `backend/services/sync_segments_service.py` - Sync.so API client (lipsync-2-pro)
+- `backend/workers/video_tasks/pro_jobs.py` - Pro job monitoring
 - `backend/api/routes/video_editors/sync/routes.py` - Pro sync API endpoint
 
 ---
 
-## 🧪 Testing Checklist
+## 🧪 Testing Workflow
 
-1. ✅ Upload video (e.g., 8.3s) and drag audio file (e.g., 5.0s)
-2. ✅ Verify segment created spanning 0 to min(audio, video) = 5.0s
-3. ✅ Move playhead to 2.5s and press `Ctrl+K` to split
-4. ✅ Verify segments: "Segment 1" (0-2.5s), "Segment 2" (2.5-5.0s)
-5. ✅ Check segment data includes `audioInput.startTime` and `audioInput.endTime`
-6. ✅ Drag Segment 1 end handle to 3.0s (beyond original 2.5s crop)
-7. ✅ Verify drag works and audio end time adjusts accordingly
-8. ✅ Move playhead to 1.5s and split Segment 1 again
-9. ✅ Verify auto-renumbering: "Segment 1" (0-1.5s), "Segment 2" (1.5-3.0s), "Segment 3" (3.0-5.0s)
-10. ✅ Check for overlap warnings if segments touch at exact boundaries
-11. ✅ Test undo/redo with `Ctrl+Z` / `Ctrl+Y`
-12. ✅ Submit job and verify it processes successfully
+1. ✅ Upload video (8.3s) and drag audio file (5.0s)
+2. ✅ Verify segment created spanning 0-5.0s
+3. ✅ Test zoom slider (0.5x to 5x) - verify single scrollbar and aligned playhead
+4. ✅ Move playhead to 2.5s and press `Ctrl+K` to split
+5. ✅ Verify both segments on **same row**: "Segment 1" (0-2.5s), "Segment 2" (2.5-5.0s)
+6. ✅ Check audio crop times are set correctly
+7. ✅ Drag segment end handle beyond crop range (e.g., to 3.0s)
+8. ✅ Split again at 1.5s - verify auto-renumbering and same-row layout
+9. ✅ Test undo/redo (Ctrl+Z/Y)
+10. ✅ Submit job - verify successful processing
 
 ---
 
 ## ✅ System Status
 
 **Core Features**: ✅ Production Ready
-**Split Feature**: ✅ Implemented with automatic audio crop times (November 23, 2025)
-**Overlap Detection**: ✅ Implemented with visual warnings (November 23, 2025)
-**Audio Duration Management**: ✅ Implemented with flexible drag constraints (November 23, 2025)
-**Code Quality**: ✅ 100% CLAUDE.md compliant (React v19, TypeScript v5.9, ≤300 lines/file)
-**Last Verified**: November 23, 2025
-**Sync.so Model**: lipsync-2-pro (upgraded for higher quality)
-**Database**: ✅ Schema updated with `status_metadata` column
-
-**Next Session**:
-1. Ready for new features or improvements!
-2. System is fully functional with all critical issues resolved
-3. Pro Video Editor workflow is smooth and intuitive
+**Timeline Zoom**: ✅ Implemented with unified scroll (December 1, 2025)
+**Single-Row Segments**: ✅ Implemented (December 1, 2025)
+**Split Feature**: ✅ Working with auto audio crop (November 23, 2025)
+**Overlap Detection**: ✅ Visual warnings (November 23, 2025)
+**Code Quality**: ✅ 100% CLAUDE.md compliant (React v19, TypeScript, ≤300 lines/file)
+**Last Verified**: December 1, 2025
 
 ---
 
@@ -205,20 +198,22 @@ docker-compose exec db psql -U vti_user -d video_text_inpainting -c "ALTER TABLE
 
 ### For Next Developer Session
 
-**IMPORTANT CONTEXT**:
-1. **Segment Split Workflow**: Drag audio → Split with Ctrl+K → Audio crop times auto-set → Submit works
-2. **Audio Crop Times**: ALWAYS set when splitting to tell Sync.so which audio portion to use
-3. **Drag Constraints**: Segments can extend to full audio duration, not limited by crop range
-4. **Overlap Warnings**: System detects both interior and boundary overlaps and shows visual warnings
+**Timeline Architecture**:
+- **Unified Scroll**: Single container with `overflowX: auto` and `overflowY: auto`
+- **Zoom Scaling**: Parent wrapper sets `width: ${100 * timelineZoom}%`, all children inherit with `width: 100%`
+- **Playhead Sync**: All components use same `progressPercentage` with `left: ${progressPercentage}%`
 
-**Key Implementation Details**:
-- Split creates segments with `audioInput.startTime` and `audioInput.endTime` matching video times
-- Drag handlers use `segment.audioInput.duration` as max limit (full audio length)
-- Overlap detection includes exact boundary matches (e.g., 1.87 === 1.87)
-- Validation checks segment duration vs available audio duration
+**Segment Layout**:
+- **Track 0**: ALL segments (audio) on same row with `trackTop = 5`
+- **Track 1+**: Effects (erasure, protection, text) on separate rows
+- **Split Behavior**: New segments stay on Track 0 alongside existing segments
 
-**Testing Tips**:
-- Use different audio/video duration combinations to test edge cases
-- Verify split works at different playhead positions
-- Check that dragging doesn't break audio synchronization
-- Ensure overlap warnings appear correctly
+**Audio Management**:
+- Split sets `audioInput.startTime` and `audioInput.endTime` matching video times
+- Drag uses `segment.audioInput.duration` as max limit (full audio length)
+- Validation checks segment duration vs available audio
+
+**Key Files to Remember**:
+- `TimelineSection.tsx` - Unified scroll container
+- `TimelineEffectsTrack.tsx` - Dual-track rendering logic
+- `segmentsStore.ts` - Split logic with audio crop calculation

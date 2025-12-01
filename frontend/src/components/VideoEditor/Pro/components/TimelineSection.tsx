@@ -385,81 +385,114 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         </Box>
       </Box>
 
-      {/* Timeline Content Area */}
+      {/* Timeline Content Area - Unified Scroll Container */}
       <Box sx={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'white',
         overflow: 'hidden',
-        minHeight: '300px'
+        minHeight: '300px',
+        position: 'relative'
       }}>
-        {/* Time Ruler */}
-        <TimeRuler
-          duration={duration}
-          currentTime={currentTime}
-          progressPercentage={progressPercentage}
-          timelineZoom={timelineZoom}
-          isDragging={isDraggingTimeline}
-          formatTime={formatTime}
-          calculateProgressPercentage={calculateProgressPercentage}
-          onSeek={(time) => videoHandlers.handleSeek(time)}
-          onDragStart={(e) => {
-            const timelineContainer = e.currentTarget as HTMLElement;
-            handleTimelineDragStart(e, timelineContainer);
+        {/* Single Horizontal + Vertical Scroll Container */}
+        <Box
+          id="timeline-scroll-container"
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowX: 'auto',
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '10px',
+              width: '10px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: '#f5f5f5',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: '#bfbfbf',
+              borderRadius: '5px',
+              '&:hover': {
+                backgroundColor: '#999',
+              },
+            },
+            '&::-webkit-scrollbar-corner': {
+              backgroundColor: '#f5f5f5',
+            },
           }}
-        />
+        >
+          {/* Timeline Wrapper - All components share this width */}
+          <Box sx={{
+            minWidth: `${100 * timelineZoom}%`,
+            width: `${100 * timelineZoom}%`,
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative'
+          }}>
+            {/* Time Ruler */}
+            <TimeRuler
+              duration={duration}
+              currentTime={currentTime}
+              progressPercentage={progressPercentage}
+              timelineZoom={timelineZoom}
+              isDragging={isDraggingTimeline}
+              formatTime={formatTime}
+              calculateProgressPercentage={calculateProgressPercentage}
+              onSeek={(time) => videoHandlers.handleSeek(time)}
+              onDragStart={(e) => {
+                const timelineContainer = e.currentTarget as HTMLElement;
+                handleTimelineDragStart(e, timelineContainer);
+              }}
+            />
 
-        {/* Timeline Content */}
-        <Box sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'auto'
-        }}>
-          {/* Frame Strip */}
-          <FrameStrip
-            thumbnails={videoHandlers.thumbnails}
-            duration={duration}
-            currentTime={currentTime}
-            progressPercentage={progressPercentage}
-            timelineZoom={timelineZoom}
-            isDragging={isDraggingTimeline}
-            frameStripRef={frameStripRef}
-            onSeek={(time) => videoHandlers.handleSeek(time)}
-            onDragStart={(e) => {
-              const frameStripContainer = e.currentTarget.closest('[data-frame-strip]') as HTMLElement;
-              if (frameStripContainer) {
-                handleTimelineDragStart(e, frameStripContainer);
-              }
-            }}
-          />
+            {/* Frame Strip */}
+            <FrameStrip
+              thumbnails={videoHandlers.thumbnails}
+              duration={duration}
+              currentTime={currentTime}
+              progressPercentage={progressPercentage}
+              timelineZoom={timelineZoom}
+              isDragging={isDraggingTimeline}
+              frameStripRef={frameStripRef}
+              onSeek={(time) => videoHandlers.handleSeek(time)}
+              onDragStart={(e) => {
+                const frameStripContainer = e.currentTarget.closest('[data-frame-strip]') as HTMLElement;
+                if (frameStripContainer) {
+                  handleTimelineDragStart(e, frameStripContainer);
+                }
+              }}
+            />
 
-          {/* Timeline Effects Track */}
-          <TimelineEffectsTrack
-            timelineEffects={timelineEffects}
-            duration={duration}
-            currentTime={currentTime}
-            progressPercentage={progressPercentage}
-            editingEffectId={effectHandlers.editingEffectId}
-            formatTime={formatTime}
-            onEffectDrag={handleTimelineEffectDrag}
-            onEffectClick={handleEffectClick}
-            onEffectDelete={handleDeleteTimelineEffect}
-            overlappingSegmentIds={overlappingSegments}
-            showDropZone={segments.length === 0}
-            dropZoneProps={{
-              isDragging: audioDropHandlers.isDragging,
-              isOver: audioDropHandlers.isOver,
-              error: audioDropHandlers.error,
-              onDragEnter: audioDropHandlers.handleDragEnter,
-              onDragOver: audioDropHandlers.handleDragOver,
-              onDragLeave: audioDropHandlers.handleDragLeave,
-              onDrop: audioDropHandlers.handleDrop,
-              onFileSelect: audioDropHandlers.handleFileSelect,
-              onClearError: audioDropHandlers.clearError,
-            }}
-          />
+            {/* Timeline Effects Track */}
+            <TimelineEffectsTrack
+              timelineEffects={timelineEffects}
+              segments={segments}
+              duration={duration}
+              currentTime={currentTime}
+              progressPercentage={progressPercentage}
+              timelineZoom={timelineZoom}
+              editingEffectId={effectHandlers.editingEffectId}
+              formatTime={formatTime}
+              onEffectDrag={handleTimelineEffectDrag}
+              onEffectClick={handleEffectClick}
+              onEffectDelete={handleDeleteTimelineEffect}
+              overlappingSegmentIds={overlappingSegments}
+              showDropZone={segments.length === 0}
+              dropZoneProps={{
+                isDragging: audioDropHandlers.isDragging,
+                isOver: audioDropHandlers.isOver,
+                error: audioDropHandlers.error,
+                onDragEnter: audioDropHandlers.handleDragEnter,
+                onDragOver: audioDropHandlers.handleDragOver,
+                onDragLeave: audioDropHandlers.handleDragLeave,
+                onDrop: audioDropHandlers.handleDrop,
+                onFileSelect: audioDropHandlers.handleFileSelect,
+                onClearError: audioDropHandlers.clearError,
+              }}
+            />
+          </Box>
         </Box>
       </Box>
     </Box>
